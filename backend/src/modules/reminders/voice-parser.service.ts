@@ -39,21 +39,38 @@ Your task is to parse spoken voice instructions from senior citizens about their
 
 Output JSON MUST strictly follow this structure:
 {
-  "medicationName": "Exact name of the medication or description if unnamed (e.g. Metformin, Blood Pressure Tablet)",
-  "dosage": "Specific dosage or count (e.g. 500mg, 1 tablet, 10ml)",
+  "medicationName": "Exact name of the medication or description if unnamed (e.g. Paracetamol, Metformin, Blood Pressure Tablet)",
+  "dosage": "Specific dosage or count (e.g. 500mg, 1 tablet, 10ml, 1 dose). If not mentioned, ALWAYS default to '1 tablet' or '1 dose'. NEVER leave empty!",
   "scheduleType": "daily" | "weekly" | "as_needed",
-  "targetTimes": ["HH:MM"], // In 24-hour format, e.g. ["09:00"] or ["09:00", "21:00"]
+  "targetTimes": ["HH:MM"], // In 24-hour format, e.g. ["17:00"] for 5 PM, ["09:00"] for 9 AM.
   "mealRelation": "BEFORE_MEAL" | "AFTER_MEAL" | "WITH_MEAL" | "INDEPENDENT",
   "mealName": ["breakfast" | "lunch" | "dinner"],
   "instructions": "Any extra notes like 'take with water' or 'after food'",
   "seniorConfirmationPhrase": "A warm, respectful spoken sentence addressed to the senior in second person confirming the exact schedule and asking for their confirmation."
 }
 
-Default rules:
-- If senior says 'after breakfast' or 'nashte ke baad' / 'nashta ke baad', set mealRelation to 'AFTER_MEAL', mealName to ['breakfast'], and targetTimes default to ['09:00'].
-- If senior says 'after dinner' or 'raat ke khane ke baad' / 'dinner ke baad', set mealRelation to 'AFTER_MEAL', mealName to ['dinner'], and targetTimes default to ['21:00'].
-- If senior mentions specific times like '8 am', targetTimes is ['08:00'].
-- Extract clean medicine names (e.g. if spoken 'ek Telmisartan 40mg', medicationName is 'Telmisartan').
+CRITICAL TIME EXTRACTION RULES:
+- If senior mentions '5 pm', '5:00 pm', '5pm', 'evening 5', 'sham ko 5 baje', 'shaam 5 baje', targetTimes MUST be ["17:00"].
+- ALWAYS convert 12-hour spoken times to 24-hour HH:MM format:
+  * 1 PM / 1 baje dophar -> "13:00"
+  * 2 PM / 2 baje -> "14:00"
+  * 3 PM / 3 baje -> "15:00"
+  * 4 PM / 4 baje -> "16:00"
+  * 5 PM / 5 baje shaam -> "17:00"
+  * 6 PM / 6 baje shaam -> "18:00"
+  * 7 PM / 7 baje shaam -> "19:00"
+  * 8 PM / 8 baje raat -> "20:00"
+  * 9 PM / 9 baje raat -> "21:00"
+  * 10 PM / 10 baje raat -> "22:00"
+  * 6 AM / 6 baje subah -> "06:00"
+  * 7 AM / 7 baje subah -> "07:00"
+  * 8 AM / 8 baje subah -> "08:00"
+  * 9 AM / 9 baje subah -> "09:00"
+  * 10 AM / 10 baje subah -> "10:00"
+- ONLY default to "09:00" if the senior explicitly says "morning" or "breakfast" / "nashta" without specifying another hour.
+- ONLY default to "21:00" if the senior explicitly says "night" or "dinner" / "raat ka khana" without specifying another hour.
+- If senior omits dosage (e.g. just says 'take Paracetamol at 5 pm' or '5 baje goli leni hai'), ALWAYS set dosage to "1 tablet" or "1 dose". NEVER leave it blank!
+- Extract clean medicine names (e.g. if spoken 'Paracetamol 500mg at 5 pm', medicationName is 'Paracetamol').
 - Output MUST be valid JSON only.`;
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -86,6 +103,18 @@ Default rules:
     }
 
     const parsed = JSON.parse(content);
+
+    // Sanitize before validation to prevent unnecessary schema rejections
+    if (!parsed.dosage || typeof parsed.dosage !== "string" || parsed.dosage.trim() === "") {
+      parsed.dosage = "1 dose";
+    }
+    if (!parsed.medicationName || typeof parsed.medicationName !== "string" || parsed.medicationName.trim() === "") {
+      parsed.medicationName = "Prescribed Medicine";
+    }
+    if (!Array.isArray(parsed.targetTimes) || parsed.targetTimes.length === 0) {
+      parsed.targetTimes = ["09:00"];
+    }
+
     return VoiceMedicationLlmOutputSchema.parse(parsed);
   }
 
@@ -102,15 +131,19 @@ Default rules:
     const dosage = dosageMatch ? dosageMatch[0] : "1 dose";
 
     let medName = "Prescribed Medicine";
-    if (lower.includes("metformin")) medName = "Metformin";
+    if (lower.includes("paracetamol")) medName = "Paracetamol";
+    else if (lower.includes("metformin")) medName = "Metformin";
     else if (lower.includes("telmisartan")) medName = "Telmisartan";
     else if (lower.includes("bp") || lower.includes("blood pressure")) medName = "Blood Pressure Tablet";
     else if (lower.includes("sugar") || lower.includes("diabetes")) medName = "Diabetes Medicine";
     else if (lower.includes("aspirin")) medName = "Aspirin";
     else if (lower.includes("atorvastatin")) medName = "Atorvastatin";
     else {
-      const words = transcript.split(/\s+/);
-      medName = words.slice(0, 3).join(" ");
+      const cleaned = transcript
+        .replace(/remind me to take|take|lena hai|leni hai|at|baje|subah|shaam|sham|raat|pm|am/gi, "")
+        .trim();
+      const words = cleaned.split(/\s+/).filter(Boolean);
+      medName = words.length > 0 ? words.slice(0, 3).join(" ") : "Prescribed Medicine";
     }
 
     let mealRelation: "BEFORE_MEAL" | "AFTER_MEAL" | "WITH_MEAL" | "INDEPENDENT" = "INDEPENDENT";
@@ -127,22 +160,51 @@ Default rules:
     }
 
     const targetTimes: string[] = [];
-    const timeMatch = lower.match(/(\d{1,2})\s*(am|pm)/);
+    const timeMatch = lower.match(/(\d{1,2})\s*(am|pm|p\.m\.|a\.m\.)/i);
+    const bajeMatch = lower.match(/(\d{1,2})\s*(?:baje|o'?clock)/i);
+    const bareNumMatch = lower.match(/(?:at|around)\s*(\d{1,2})/i);
+
+    const isEveningOrNight =
+      lower.includes("pm") ||
+      lower.includes("shaam") ||
+      lower.includes("sham") ||
+      lower.includes("evening") ||
+      lower.includes("raat") ||
+      lower.includes("night");
+
+    const isMorning =
+      lower.includes("am") ||
+      lower.includes("subah") ||
+      lower.includes("morning") ||
+      lower.includes("breakfast") ||
+      lower.includes("nashta");
+
     if (timeMatch) {
       let hour = parseInt(timeMatch[1], 10);
-      const isPm = timeMatch[2] === "pm";
+      const isPm = timeMatch[2].toLowerCase().includes("pm");
       if (isPm && hour < 12) hour += 12;
       if (!isPm && hour === 12) hour = 0;
       targetTimes.push(`${hour.toString().padStart(2, "0")}:00`);
-    } else if (mealName.includes("breakfast")) {
+    } else if (bajeMatch) {
+      let hour = parseInt(bajeMatch[1], 10);
+      if (isEveningOrNight && hour < 12) hour += 12;
+      else if (!isMorning && hour >= 1 && hour <= 6) hour += 12; // e.g. 5 baje -> 17:00
+      targetTimes.push(`${hour.toString().padStart(2, "0")}:00`);
+    } else if (bareNumMatch) {
+      let hour = parseInt(bareNumMatch[1], 10);
+      if (isEveningOrNight && hour < 12) hour += 12;
+      else if (!isMorning && hour >= 1 && hour <= 6) hour += 12;
+      targetTimes.push(`${hour.toString().padStart(2, "0")}:00`);
+    } else if (mealName.includes("breakfast") || isMorning) {
       targetTimes.push("09:00");
-    } else if (mealName.includes("dinner")) {
+    } else if (mealName.includes("dinner") || isEveningOrNight) {
       targetTimes.push("21:00");
     } else {
       targetTimes.push("09:00");
     }
 
-    const spokenConfirmation = `Hello ${seniorName}, I have noted your ${medName} (${dosage}) at ${targetTimes.join(" and ")}. Please confirm to save this reminder.`;
+    const displayTime = targetTimes[0] || "09:00";
+    const spokenConfirmation = `Hello ${seniorName}, I have noted your ${medName} (${dosage}) at ${displayTime}. Would you like to confirm and save this reminder?`;
 
     return VoiceMedicationLlmOutputSchema.parse({
       medicationName: medName,

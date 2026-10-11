@@ -374,25 +374,64 @@ export default function App() {
     }
   };
 
-  // Toggle Microphone
+  // Toggle Microphone with dynamic on-gesture initialization for mobile browsers
   const toggleListening = () => {
     if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
       if (recognitionRef.current) {
         try {
-          recognitionRef.current.start();
-          setIsListening(true);
-        } catch {
-          setIsListening(false);
-        }
-      } else {
-        // Fallback simulation for browsers blocking audio mic
-        const samplePrompt = "Subah nashte ke baad Telmisartan 40mg lena hai aur paani ke saath";
-        setVoiceTranscript(samplePrompt);
-        handleVoiceParse(samplePrompt);
+          recognitionRef.current.stop();
+        } catch {}
       }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToast("Speech recognition not supported in this browser. Please type your schedule or tap a prompt chip below.");
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-IN"; // English + Indian accent & Hindi vocabulary
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setVoiceTranscript(transcript);
+        setIsListening(false);
+        handleVoiceParse(transcript);
+      };
+
+      recognition.onerror = (e: any) => {
+        console.warn("Speech recognition error:", e);
+        setIsListening(false);
+        if (e.error === "not-allowed") {
+          showToast("Microphone access was denied. Please allow microphone permissions in browser settings.");
+        } else if (e.error === "no-speech") {
+          showToast("No speech heard. Please speak clearly into your phone's microphone.");
+        } else {
+          showToast(`Microphone: ${e.error || "Please try speaking again"}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.warn("Microphone start error:", err);
+      setIsListening(false);
+      showToast("Could not access microphone. Please type or use prompt chips below.");
     }
   };
 
@@ -494,10 +533,17 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [showSosModal, sosCountdown, sosDispatched]);
 
-  // Dispatch Emergency to live backend RabbitMQ queue
-  const dispatchLiveSos = async () => {
+  // Dispatch Emergency to live backend RabbitMQ queue & launch native phone dialer
+  const dispatchLiveSos = async (targetPhone = "+919811122233") => {
     setSosDispatched(true);
-    speakText("Emergency alert sent. Help has been notified and family is being called.");
+    speakText("Emergency alert sent. Help has been notified and family phone line is opening.");
+
+    // Native client-side direct calling: prompts the device phone dialer immediately
+    try {
+      window.location.href = `tel:${targetPhone}`;
+    } catch (e) {
+      console.warn("Direct dial trigger:", e);
+    }
 
     try {
       const res = await fetch("/api/sos/trigger", {
@@ -515,7 +561,7 @@ export default function App() {
 
       const json = await res.json();
       if (json.success) {
-        showToast("🚨 SOS Emergency published to RabbitMQ queue!");
+        showToast("🚨 SOS Emergency alert logged & published to RabbitMQ queue!");
       }
     } catch (err) {
       console.error("SOS trigger error:", err);
@@ -832,14 +878,59 @@ export default function App() {
                     : "Tap to Speak"}
                 </div>
 
-                {voiceTranscript && (
-                  <div style={{ fontStyle: "italic", color: "var(--text-muted)", marginBottom: "1.5rem" }}>
-                    "{voiceTranscript}"
-                  </div>
-                )}
+                {/* Manual Voice Text Input & Edit Bar */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (voiceTranscript.trim()) {
+                      handleVoiceParse(voiceTranscript);
+                    }
+                  }}
+                  style={{ display: "flex", gap: "0.5rem", width: "100%", maxWidth: "580px", margin: "0 auto 1.5rem auto" }}
+                >
+                  <input
+                    type="text"
+                    className="form-input-custom"
+                    placeholder="Or type/edit schedule: e.g. Paracetamol 500mg at 5 PM"
+                    value={voiceTranscript}
+                    onChange={(e) => setVoiceTranscript(e.target.value)}
+                    style={{ flex: 1, borderRadius: "12px", fontSize: "0.95rem" }}
+                  />
+                  <button
+                    type="submit"
+                    className="btn-island btn-island-amber"
+                    style={{ padding: "0.6rem 1.15rem" }}
+                    disabled={isParsing || !voiceTranscript.trim()}
+                  >
+                    <span>{isParsing ? "Parsing..." : "Parse AI"}</span>
+                    <div className="btn-island-tray">
+                      <ArrowRight size={16} />
+                    </div>
+                  </button>
+                </form>
 
                 {/* Quick Natural Dialect Prompts */}
                 <div className="prompt-chips-wrap">
+                  <button
+                    className="prompt-chip"
+                    onClick={() => {
+                      const text = "Take Paracetamol 500mg at 5 PM in the evening";
+                      setVoiceTranscript(text);
+                      handleVoiceParse(text);
+                    }}
+                  >
+                    ☕ "Take Paracetamol 500mg at 5 PM"
+                  </button>
+                  <button
+                    className="prompt-chip"
+                    onClick={() => {
+                      const text = "Shaam ko 5 baje Paracetamol lena hai";
+                      setVoiceTranscript(text);
+                      handleVoiceParse(text);
+                    }}
+                  >
+                    🇮🇳 "Shaam ko 5 baje Paracetamol lena hai"
+                  </button>
                   <button
                     className="prompt-chip"
                     onClick={() => {
@@ -848,17 +939,7 @@ export default function App() {
                       handleVoiceParse(text);
                     }}
                   >
-                    🗣️ "Remind me to take Metformin 500mg after breakfast"
-                  </button>
-                  <button
-                    className="prompt-chip"
-                    onClick={() => {
-                      const text = "Subah nashte ke baad Telmisartan 40mg lena hai aur paani ke saath";
-                      setVoiceTranscript(text);
-                      handleVoiceParse(text);
-                    }}
-                  >
-                    🇮🇳 "Subah nashte ke baad Telmisartan 40mg lena hai"
+                    🗣️ "Metformin 500mg after breakfast (9 AM)"
                   </button>
                   <button
                     className="prompt-chip"
@@ -868,7 +949,7 @@ export default function App() {
                       handleVoiceParse(text);
                     }}
                   >
-                    🌙 "Blood pressure tablet at 9 pm after dinner"
+                    🌙 "Blood pressure tablet at 9 PM after dinner"
                   </button>
                 </div>
               </div>
@@ -980,6 +1061,23 @@ export default function App() {
                     <Radio size={20} strokeWidth={2.5} />
                   </div>
                 </button>
+              </div>
+
+              {/* Instant Speed Dial Direct Line Strip */}
+              <div style={{ padding: "0.75rem 1.75rem", background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ fontSize: "0.85rem", color: "#fca5a5", fontWeight: 700 }}>1-Tap Direct Call:</span>
+                <a href="tel:+919811122233" className="btn-island btn-island-ghost" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem", textDecoration: "none" }}>
+                  <PhoneCall size={14} />
+                  <span>Daughter (+91 98111 22233)</span>
+                </a>
+                <a href="tel:+919844455566" className="btn-island btn-island-ghost" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem", textDecoration: "none" }}>
+                  <PhoneCall size={14} />
+                  <span>Son (+91 98444 55566)</span>
+                </a>
+                <a href="tel:112" className="btn-island btn-island-ghost" style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem", textDecoration: "none", color: "#fca5a5" }}>
+                  <AlertTriangle size={14} />
+                  <span>112 Ambulance / Police</span>
+                </a>
               </div>
             </div>
           </div>
@@ -1612,13 +1710,78 @@ export default function App() {
               {!sosDispatched && <div className="sos-countdown-giant">{sosCountdown}</div>}
 
               {sosDispatched ? (
-                <div style={{ marginTop: "2rem" }}>
+                <div style={{ marginTop: "1.5rem" }}>
+                  <div style={{ background: "rgba(0,0,0,0.35)", borderRadius: "14px", padding: "1.25rem", marginBottom: "1.25rem", textAlign: "left", border: "1px solid rgba(239, 68, 68, 0.3)" }}>
+                    <div style={{ fontSize: "0.85rem", color: "var(--accent-amber)", fontWeight: 700, textTransform: "uppercase", marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <PhoneCall size={16} />
+                      <span>Speed Dial Emergency Direct Calls</span>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                      <a
+                        href="tel:+919811122233"
+                        className="btn-island btn-island-crimson"
+                        style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", padding: "0.85rem 1.15rem" }}
+                      >
+                        <div style={{ textAlign: "left" }}>
+                          <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>Call Daughter (Priya Rao)</div>
+                          <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>+91 98111 22233 • Primary Contact (Tier 1)</div>
+                        </div>
+                        <div className="btn-island-tray">
+                          <PhoneCall size={18} strokeWidth={2.5} />
+                        </div>
+                      </a>
+
+                      <a
+                        href="tel:+919844455566"
+                        className="btn-island btn-island-amber"
+                        style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", padding: "0.85rem 1.15rem" }}
+                      >
+                        <div style={{ textAlign: "left" }}>
+                          <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>Call Son (Vikram Rao)</div>
+                          <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>+91 98444 55566 • Secondary Contact (Tier 2)</div>
+                        </div>
+                        <div className="btn-island-tray">
+                          <PhoneCall size={18} strokeWidth={2.5} />
+                        </div>
+                      </a>
+
+                      <a
+                        href="tel:112"
+                        className="btn-island"
+                        style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", background: "#b91c1c", color: "#fff", padding: "0.85rem 1.15rem", border: "1px solid rgba(255,255,255,0.2)" }}
+                      >
+                        <div style={{ textAlign: "left" }}>
+                          <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>National Emergency Helpline</div>
+                          <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>Dial 112 • Police / Medical Ambulance</div>
+                        </div>
+                        <div className="btn-island-tray">
+                          <AlertTriangle size={18} strokeWidth={2.5} />
+                        </div>
+                      </a>
+
+                      <a
+                        href="tel:+919820123456"
+                        className="btn-island btn-island-emerald"
+                        style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", padding: "0.85rem 1.15rem" }}
+                      >
+                        <div style={{ textAlign: "left" }}>
+                          <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>Call Local Volunteer (Rohan)</div>
+                          <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>+91 98201 23456 • Nearby Community Responder</div>
+                        </div>
+                        <div className="btn-island-tray">
+                          <PhoneCall size={18} strokeWidth={2.5} />
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+
                   <button
                     className="btn-island btn-island-ghost"
                     style={{ justifyContent: "center", width: "100%" }}
                     onClick={() => setShowSosModal(false)}
                   >
-                    <span>Close Window</span>
+                    <span>Close Emergency Window</span>
                   </button>
                 </div>
               ) : (
