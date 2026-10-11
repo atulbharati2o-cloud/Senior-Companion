@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express";
-import { db, medicineReminders, reminderOccurrences, seniorProfiles, users, eq } from "@companion/db";
+import { db, medicineReminders, reminderOccurrences, seniorProfiles, users, emergencyContacts, eq, and, or } from "@companion/db";
 import { CreateMedicineReminderSchema } from "@companion/shared";
 import { VoiceMedicineParserService } from "./voice-parser.service";
+import { optionalAuthenticate } from "../auth/auth.middleware";
+import { AuthenticatedRequest } from "../auth/auth.types";
 import { z } from "zod";
 
 export const remindersRouter = Router();
@@ -35,14 +37,24 @@ remindersRouter.post("/voice-parse", async (req: Request, res: Response) => {
 /**
  * 2. Create and persist a medicine reminder in PostgreSQL via Drizzle ORM
  */
-remindersRouter.post("/", async (req: Request, res: Response) => {
+remindersRouter.post("/", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // If seniorId is missing, "default", or placeholder, fallback to first senior user in DB
-    if (!req.body.seniorId || req.body.seniorId === "default" || req.body.seniorId.startsWith("00000000")) {
-      const [demoSenior] = await db.select().from(users).where(eq(users.role, "SENIOR"));
-      if (demoSenior) {
-        req.body.seniorId = demoSenior.id;
+    if (!req.body.seniorId || req.body.seniorId === "default" || String(req.body.seniorId).startsWith("00000000")) {
+      if (req.user?.role === "SENIOR") {
+        req.body.seniorId = req.user.userId;
+      } else if (req.user?.role === "FAMILY") {
+        const conditions = [eq(emergencyContacts.familyUserId, req.user.userId)];
+        if (req.user.phone) conditions.push(eq(emergencyContacts.phone, req.user.phone));
+        const [contact] = await db.select().from(emergencyContacts).where(or(...conditions));
+        if (contact) {
+          req.body.seniorId = contact.seniorId;
+        }
       }
+    }
+
+    if (!req.body.seniorId) {
+      res.status(400).json({ error: "A linked senior parent is required before scheduling medicine." });
+      return;
     }
 
     const validated = CreateMedicineReminderSchema.parse(req.body);
@@ -94,11 +106,34 @@ remindersRouter.post("/", async (req: Request, res: Response) => {
 });
 
 /**
- * 3. Fetch all active reminders
+ * 3. Fetch active reminders (optionally filtered by seniorId)
  */
-remindersRouter.get("/", async (_req: Request, res: Response) => {
+remindersRouter.get("/", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const reminders = await db.select().from(medicineReminders);
+    const { seniorId } = req.query;
+    let targetSeniorId = seniorId && typeof seniorId === "string" ? seniorId : undefined;
+
+    if (!targetSeniorId && req.user) {
+      if (req.user.role === "SENIOR") {
+        targetSeniorId = req.user.userId;
+      } else if (req.user.role === "FAMILY") {
+        const conditions = [eq(emergencyContacts.familyUserId, req.user.userId)];
+        if (req.user.phone) conditions.push(eq(emergencyContacts.phone, req.user.phone));
+        const [contact] = await db.select().from(emergencyContacts).where(or(...conditions));
+        if (contact) {
+          targetSeniorId = contact.seniorId;
+        }
+      }
+    }
+
+    if (!targetSeniorId) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const reminders = await db.select()
+      .from(medicineReminders)
+      .where(eq(medicineReminders.seniorId, targetSeniorId));
     res.json({ success: true, data: reminders });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -128,10 +163,30 @@ remindersRouter.get("/senior/:seniorId", async (req: Request, res: Response) => 
 /**
  * 5. Fetch today's reminder occurrences (for senior or caregiver feed)
  */
-remindersRouter.get("/occurrences/today", async (req: Request, res: Response) => {
+remindersRouter.get("/occurrences/today", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { seniorId } = req.query;
-    let query = db
+    let targetSeniorId = seniorId && typeof seniorId === "string" ? seniorId : undefined;
+
+    if (!targetSeniorId && req.user) {
+      if (req.user.role === "SENIOR") {
+        targetSeniorId = req.user.userId;
+      } else if (req.user.role === "FAMILY") {
+        const conditions = [eq(emergencyContacts.familyUserId, req.user.userId)];
+        if (req.user.phone) conditions.push(eq(emergencyContacts.phone, req.user.phone));
+        const [contact] = await db.select().from(emergencyContacts).where(or(...conditions));
+        if (contact) {
+          targetSeniorId = contact.seniorId;
+        }
+      }
+    }
+
+    if (!targetSeniorId) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const occurrences = await db
       .select({
         id: reminderOccurrences.id,
         reminderId: reminderOccurrences.reminderId,
@@ -144,15 +199,9 @@ remindersRouter.get("/occurrences/today", async (req: Request, res: Response) =>
         instructions: medicineReminders.instructions
       })
       .from(reminderOccurrences)
-      .innerJoin(medicineReminders, eq(medicineReminders.id, reminderOccurrences.reminderId));
+      .innerJoin(medicineReminders, eq(medicineReminders.id, reminderOccurrences.reminderId))
+      .where(eq(medicineReminders.seniorId, targetSeniorId));
 
-    if (seniorId && typeof seniorId === "string") {
-      const filtered = await query.where(eq(medicineReminders.seniorId, seniorId));
-      res.json({ success: true, data: filtered });
-      return;
-    }
-
-    const occurrences = await query;
     res.json({ success: true, data: occurrences });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -192,7 +241,7 @@ remindersRouter.post("/occurrence/:id/acknowledge", async (req: Request, res: Re
 /**
  * 7. Generate Family Caregiver pairing invitation code
  */
-remindersRouter.post("/invite/create", async (req: Request, res: Response) => {
+remindersRouter.post("/invite/create", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { parentName, phone } = req.body;
     const targetPhone = phone || `+91${Math.floor(9000000000 + Math.random() * 1000000000)}`;
@@ -242,6 +291,32 @@ remindersRouter.post("/invite/create", async (req: Request, res: Response) => {
       });
     }
 
+    // Link caller in emergencyContacts if authenticated as FAMILY
+    if (req.user) {
+      const caregiverUser = req.user;
+      const [existingContact] = await db
+        .select()
+        .from(emergencyContacts)
+        .where(
+          and(
+            eq(emergencyContacts.seniorId, targetSeniorId),
+            eq(emergencyContacts.familyUserId, caregiverUser.userId)
+          )
+        );
+
+      if (!existingContact) {
+        await db.insert(emergencyContacts).values({
+          seniorId: targetSeniorId,
+          familyUserId: caregiverUser.userId,
+          name: caregiverUser.fullName,
+          relationship: "Family Caregiver",
+          phone: caregiverUser.phone || "+919800000000",
+          priorityTier: 1,
+          isNotifiedOnMissedMeds: true
+        });
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -260,27 +335,182 @@ remindersRouter.post("/invite/create", async (req: Request, res: Response) => {
 /**
  * 8. Fetch linked senior parent details for Caregiver portal
  */
-remindersRouter.get("/caregiver/parent", async (_req: Request, res: Response) => {
+remindersRouter.get("/caregiver/parent", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const [senior] = await db
-      .select({
-        id: users.id,
-        fullName: users.fullName,
-        phone: users.phone,
-        pairingCode: seniorProfiles.pairingCode,
-        isPaired: seniorProfiles.isPaired,
-        preferredLanguage: seniorProfiles.preferredLanguage
-      })
-      .from(users)
-      .innerJoin(seniorProfiles, eq(seniorProfiles.userId, users.id))
-      .where(eq(users.role, "SENIOR"))
-      .limit(1);
+    const user = req.user;
+    if (!user) {
+      res.json({ success: true, data: null });
+      return;
+    }
+
+    // Find emergency contact linking this caregiver to a senior
+    const conditions = [
+      eq(emergencyContacts.familyUserId, user.userId)
+    ];
+    if (user.phone) {
+      conditions.push(eq(emergencyContacts.phone, user.phone));
+    }
+
+    const [contact] = await db
+      .select()
+      .from(emergencyContacts)
+      .where(or(...conditions));
+
+    if (!contact) {
+      // Not connected to any senior parent yet
+      res.json({ success: true, data: null });
+      return;
+    }
+
+    // Fetch the linked senior's user and profile
+    const [seniorUser] = await db.select().from(users).where(eq(users.id, contact.seniorId));
+    if (!seniorUser) {
+      res.json({ success: true, data: null });
+      return;
+    }
+
+    const [seniorProf] = await db.select().from(seniorProfiles).where(eq(seniorProfiles.userId, seniorUser.id));
+
+    // Also link familyUserId on the contact row if matched by phone
+    if (!contact.familyUserId) {
+      await db.update(emergencyContacts)
+        .set({ familyUserId: user.userId })
+        .where(eq(emergencyContacts.id, contact.id));
+    }
 
     res.json({
       success: true,
-      data: senior || null
+      data: {
+        id: seniorUser.id,
+        fullName: seniorUser.fullName,
+        phone: seniorUser.phone,
+        pairingCode: seniorProf?.pairingCode || null,
+        isPaired: seniorProf?.isPaired || false,
+        preferredLanguage: seniorProf?.preferredLanguage || "English"
+      }
     });
   } catch (err) {
+    console.error("Fetch caregiver parent error:", err);
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+/**
+ * 9. Pair Caregiver with Senior using 4-digit numeric code
+ */
+remindersRouter.post("/caregiver/pair", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { pairingCode } = req.body;
+    if (!pairingCode || typeof pairingCode !== "string" || pairingCode.trim().length !== 4) {
+      res.status(400).json({ error: "A valid 4-digit pairing code is required" });
+      return;
+    }
+
+    const trimmedCode = pairingCode.trim();
+
+    // Look up senior profile by pairing code
+    const [profile] = await db
+      .select()
+      .from(seniorProfiles)
+      .where(eq(seniorProfiles.pairingCode, trimmedCode));
+
+    if (!profile) {
+      res.status(404).json({ error: `No senior account found with 4-digit code '${trimmedCode}'. Please verify the code on your parent's screen.` });
+      return;
+    }
+
+    const [seniorUser] = await db.select().from(users).where(eq(users.id, profile.userId));
+    if (!seniorUser) {
+      res.status(404).json({ error: "Senior account not found" });
+      return;
+    }
+
+    // Mark as paired in senior profile
+    await db.update(seniorProfiles)
+      .set({ isPaired: true })
+      .where(eq(seniorProfiles.id, profile.id));
+
+    // Link caregiver in emergency contacts if authenticated
+    if (req.user) {
+      const caregiverUser = req.user;
+      const conditions = [
+        eq(emergencyContacts.familyUserId, caregiverUser.userId)
+      ];
+      if (caregiverUser.phone) {
+        conditions.push(eq(emergencyContacts.phone, caregiverUser.phone));
+      }
+
+      const [existingContact] = await db
+        .select()
+        .from(emergencyContacts)
+        .where(
+          and(
+            eq(emergencyContacts.seniorId, seniorUser.id),
+            or(...conditions)
+          )
+        );
+
+      if (existingContact) {
+        await db.update(emergencyContacts)
+          .set({ familyUserId: caregiverUser.userId })
+          .where(eq(emergencyContacts.id, existingContact.id));
+      } else {
+        await db.insert(emergencyContacts).values({
+          seniorId: seniorUser.id,
+          familyUserId: caregiverUser.userId,
+          name: caregiverUser.fullName,
+          relationship: "Family Caregiver",
+          phone: caregiverUser.phone || "+919800000000",
+          priorityTier: 1,
+          isNotifiedOnMissedMeds: true
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully connected to ${seniorUser.fullName}`,
+      data: {
+        id: seniorUser.id,
+        fullName: seniorUser.fullName,
+        phone: seniorUser.phone,
+        pairingCode: profile.pairingCode,
+        isPaired: true,
+        preferredLanguage: profile.preferredLanguage
+      }
+    });
+  } catch (err) {
+    console.error("Caregiver pairing error:", err);
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+/**
+ * 10. Fetch Emergency Contacts for a Senior
+ */
+remindersRouter.get("/contacts", async (req: Request, res: Response) => {
+  try {
+    const { seniorId } = req.query;
+    if (!seniorId || typeof seniorId !== "string") {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const contacts = await db
+      .select({
+        id: emergencyContacts.id,
+        name: emergencyContacts.name,
+        relationship: emergencyContacts.relationship,
+        phone: emergencyContacts.phone,
+        priorityTier: emergencyContacts.priorityTier,
+        isNotifiedOnMissedMeds: emergencyContacts.isNotifiedOnMissedMeds
+      })
+      .from(emergencyContacts)
+      .where(eq(emergencyContacts.seniorId, seniorId));
+
+    res.json({ success: true, data: contacts });
+  } catch (err) {
+    console.error("Fetch contacts error:", err);
     res.status(500).json({ error: (err as Error).message });
   }
 });

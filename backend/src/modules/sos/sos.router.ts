@@ -27,14 +27,7 @@ const ResolveSosSchema = z.object({
 sosRouter.post("/trigger", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validated = TriggerSosSchema.parse(req.body);
-    let targetSeniorId = validated.seniorId || req.user?.userId;
-
-    if (!targetSeniorId || targetSeniorId.startsWith("00000000")) {
-      const [demoSenior] = await db.select().from(users).where(eq(users.role, "SENIOR"));
-      if (demoSenior) {
-        targetSeniorId = demoSenior.id;
-      }
-    }
+    let targetSeniorId = validated.seniorId || (req.user?.role === "SENIOR" ? req.user.userId : undefined);
 
     if (!targetSeniorId) {
       res.status(400).json({ error: "Senior user not specified or found" });

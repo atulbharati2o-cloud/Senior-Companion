@@ -78,23 +78,12 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
         ) : activeSession?.role === "FAMILY" ? (
-          <nav className="view-tabs" role="tablist">
-            <button
-              className={`view-tab ${activeTab === "caregiver" ? "active caregiver-tab" : ""}`}
-              onClick={() => setActiveTab("caregiver")}
-            >
+          <div className="view-tabs" style={{ background: "rgba(99, 102, 241, 0.08)", borderColor: "rgba(99, 102, 241, 0.25)" }}>
+            <div className="view-tab active caregiver-tab" style={{ cursor: "default" }}>
               <Users size={16} strokeWidth={2} />
               <span>Caregiver Hub</span>
-            </button>
-            <button
-              className={`view-tab ${activeTab === "senior" ? "active senior-tab" : ""}`}
-              onClick={() => setActiveTab("senior")}
-              title="Preview what your senior parent sees on their screen"
-            >
-              <Heart size={16} strokeWidth={2} />
-              <span>Parent Screen Preview</span>
-            </button>
-          </nav>
+            </div>
+          </div>
         ) : activeSession?.role === "VOLUNTEER" ? (
           <nav className="view-tabs" role="tablist">
             <button

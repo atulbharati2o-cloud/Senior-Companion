@@ -97,3 +97,12 @@ export interface LinkedSenior {
   preferredLanguage?: string;
 }
 
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  relationship?: string;
+  phone: string;
+  priorityTier: number;
+  isNotifiedOnMissedMeds: boolean;
+}
+

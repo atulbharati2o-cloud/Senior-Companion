@@ -1,10 +1,12 @@
 import React from "react";
-import { AlertTriangle, PhoneCall, X } from "lucide-react";
+import { AlertTriangle, PhoneCall, X, ShieldAlert } from "lucide-react";
+import { EmergencyContact } from "../../types";
 
 interface SosModalProps {
   isOpen: boolean;
   sosCountdown: number;
   sosDispatched: boolean;
+  contacts?: EmergencyContact[];
   onCancel: () => void;
   onClose: () => void;
 }
@@ -13,6 +15,7 @@ export const SosModal: React.FC<SosModalProps> = ({
   isOpen,
   sosCountdown,
   sosDispatched,
+  contacts = [],
   onCancel,
   onClose
 }) => {
@@ -48,34 +51,31 @@ export const SosModal: React.FC<SosModalProps> = ({
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-                  <a
-                    href="tel:+919811122233"
-                    className="btn-island btn-island-crimson"
-                    style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", padding: "0.85rem 1.15rem" }}
-                  >
-                    <div style={{ textAlign: "left" }}>
-                      <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>Call Daughter (Priya Rao)</div>
-                      <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>+91 98111 22233 • Primary Contact (Tier 1)</div>
-                    </div>
-                    <div className="btn-island-tray">
-                      <PhoneCall size={18} strokeWidth={2.5} />
-                    </div>
-                  </a>
+                  {/* Real Emergency Contacts from PostgreSQL */}
+                  {contacts.length > 0 ? (
+                    contacts.map((contact) => (
+                      <a
+                        key={contact.id}
+                        href={`tel:${contact.phone}`}
+                        className={`btn-island ${contact.priorityTier === 1 ? "btn-island-crimson" : "btn-island-amber"}`}
+                        style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", padding: "0.85rem 1.15rem" }}
+                      >
+                        <div style={{ textAlign: "left" }}>
+                          <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>
+                            Call {contact.name} {contact.relationship ? `(${contact.relationship})` : ""}
+                          </div>
+                          <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>
+                            {contact.phone} • Tier {contact.priorityTier} ({contact.priorityTier === 1 ? "Primary Emergency" : "Secondary Fallback"})
+                          </div>
+                        </div>
+                        <div className="btn-island-tray">
+                          <PhoneCall size={18} strokeWidth={2.5} />
+                        </div>
+                      </a>
+                    ))
+                  ) : null}
 
-                  <a
-                    href="tel:+919844455566"
-                    className="btn-island btn-island-amber"
-                    style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", padding: "0.85rem 1.15rem" }}
-                  >
-                    <div style={{ textAlign: "left" }}>
-                      <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>Call Son (Vikram Rao)</div>
-                      <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>+91 98444 55566 • Secondary Contact (Tier 2)</div>
-                    </div>
-                    <div className="btn-island-tray">
-                      <PhoneCall size={18} strokeWidth={2.5} />
-                    </div>
-                  </a>
-
+                  {/* 112 National Helpline (Always available) */}
                   <a
                     href="tel:112"
                     className="btn-island"
@@ -83,26 +83,19 @@ export const SosModal: React.FC<SosModalProps> = ({
                   >
                     <div style={{ textAlign: "left" }}>
                       <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>National Emergency Helpline</div>
-                      <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>Dial 112 • Police / Medical Ambulance</div>
+                      <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>Dial 112 • Police / Medical Ambulance Dispatch</div>
                     </div>
                     <div className="btn-island-tray">
                       <AlertTriangle size={18} strokeWidth={2.5} />
                     </div>
                   </a>
 
-                  <a
-                    href="tel:+919820123456"
-                    className="btn-island btn-island-emerald"
-                    style={{ textDecoration: "none", width: "100%", justifyContent: "space-between", padding: "0.85rem 1.15rem" }}
-                  >
-                    <div style={{ textAlign: "left" }}>
-                      <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>Call Local Volunteer (Rohan)</div>
-                      <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>+91 98201 23456 • Nearby Community Responder</div>
+                  {contacts.length === 0 && (
+                    <div style={{ padding: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px dashed rgba(239, 68, 68, 0.4)", display: "flex", alignItems: "center", gap: "0.5rem", color: "#fca5a5", fontSize: "0.84rem" }}>
+                      <ShieldAlert size={16} />
+                      <span>Nearby community volunteers and NGO dispatch coordinators have been automatically notified.</span>
                     </div>
-                    <div className="btn-island-tray">
-                      <PhoneCall size={18} strokeWidth={2.5} />
-                    </div>
-                  </a>
+                  )}
                 </div>
               </div>
 

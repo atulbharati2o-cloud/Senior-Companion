@@ -7,7 +7,6 @@ import {
   volunteerProfiles,
   emergencyContacts,
   medicineReminders,
-  reminderOccurrences,
   volunteerAssignments,
   checkIns,
   eq,
@@ -235,42 +234,15 @@ export class AuthService {
           isPaired: true
         });
 
-        // Seed 2 Emergency Contacts
         await db.insert(emergencyContacts).values([
           { seniorId: seniorUser.id, name: "Priya Rao (Daughter)", relationship: "Daughter", phone: "+919811122233", priorityTier: 1, isNotifiedOnMissedMeds: true },
           { seniorId: seniorUser.id, name: "Vikram Rao (Son)", relationship: "Son", phone: "+919844455566", priorityTier: 2, isNotifiedOnMissedMeds: true }
         ]);
-
-        // Seed 2 Medicine Reminders
-        const [med1] = await db.insert(medicineReminders).values({
-          seniorId: seniorUser.id,
-          medicineName: "Metformin",
-          dosage: "500 mg",
-          mealRelation: "AFTER_MEAL",
-          targetTimes: ["09:00"],
-          instructions: "Take with warm water"
-        }).returning();
-
-        const [med2] = await db.insert(medicineReminders).values({
-          seniorId: seniorUser.id,
-          medicineName: "Telmisartan (BP)",
-          dosage: "40 mg",
-          mealRelation: "AFTER_MEAL",
-          targetTimes: ["14:00"],
-          instructions: "Take after lunch with water"
-        }).returning();
-
-        const today = new Date();
-        const occ1Time = new Date(today); occ1Time.setHours(9, 0, 0, 0);
-        const occ2Time = new Date(today); occ2Time.setHours(14, 0, 0, 0);
-
-        await db.insert(reminderOccurrences).values([
-          { reminderId: med1.id, scheduledFor: occ1Time, status: "SCHEDULED" },
-          { reminderId: med2.id, scheduledFor: occ2Time, status: "SCHEDULED" }
-        ]);
       } else {
         const [prof] = await db.select().from(seniorProfiles).where(eq(seniorProfiles.userId, seniorUser.id));
         if (prof?.pairingCode) pairingCode = prof.pairingCode;
+
+        await this.stripSeededDemoMedicines(seniorUser.id);
       }
 
       const token = this.generateToken({
@@ -397,6 +369,11 @@ export class AuthService {
         }).returning();
       }
 
+      const [demoSenior] = await db.select().from(users).where(eq(users.email, "shanti.devi@senior.companion"));
+      if (demoSenior) {
+        await this.stripSeededDemoMedicines(demoSenior.id);
+      }
+
       const token = this.generateToken({
         userId: famUser.id,
         role: "FAMILY",
@@ -416,5 +393,15 @@ export class AuthService {
     }
 
     throw new Error(`Unsupported demo role: ${role}`);
+  }
+
+  private static async stripSeededDemoMedicines(seniorUserId: string) {
+    const seededNames = ["Metformin", "Telmisartan (BP)", "Paracetamol (30s Test)", "Paracetamol", "Prescribed Medication", "Prescribed Medicine", "Diabetes Medicine"];
+    const existingMeds = await db.select().from(medicineReminders).where(eq(medicineReminders.seniorId, seniorUserId));
+    for (const med of existingMeds) {
+      if (seededNames.includes(med.medicineName)) {
+        await db.delete(medicineReminders).where(eq(medicineReminders.id, med.id));
+      }
+    }
   }
 }
