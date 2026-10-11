@@ -1,0 +1,20 @@
+{
+  "name": "senior-companion",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter @companion/backend --filter @companion/frontend dev",
+    "dev:backend": "pnpm --filter @companion/backend dev",
+    "dev:frontend": "pnpm --filter @companion/frontend dev",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @companion/db db:generate",
+    "db:migrate": "pnpm --filter @companion/db db:migrate",
+    "db:studio": "pnpm --filter @companion/db db:studio",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

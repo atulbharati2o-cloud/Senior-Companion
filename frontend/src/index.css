@@ -1,0 +1,843 @@
+:root {
+  --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+
+  /* Color System: Deep Trust & High-Contrast Warmth */
+  --bg-deep: #070b14;
+  --bg-primary: #0b1120;
+  --bg-surface: #111a2e;
+  --bg-surface-elevated: #16223b;
+  --bg-card-inner: #131c31;
+
+  --accent-amber: #f59e0b;       /* Warm alert / senior guidance */
+  --accent-amber-light: #fcd34d;
+  --accent-emerald: #10b981;     /* Medication taken / success / verified */
+  --accent-emerald-light: #34d399;
+  --accent-crimson: #ef4444;     /* Emergency SOS / Critical */
+  --accent-crimson-light: #f87171;
+  --accent-indigo: #6366f1;      /* Caregiver link / portal */
+  --accent-cyan: #06b6d4;        /* Live voice waveform */
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-outer-shell: rgba(255, 255, 255, 0.12);
+  --border-focus: rgba(245, 158, 11, 0.5);
+
+  --shadow-card: 0 16px 36px -8px rgba(0, 0, 0, 0.55), 0 8px 16px -6px rgba(0, 0, 0, 0.4);
+  --shadow-inner-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  --shadow-glow-amber: 0 0 30px rgba(245, 158, 11, 0.28);
+  --shadow-glow-emerald: 0 0 30px rgba(16, 185, 129, 0.25);
+  --shadow-glow-crimson: 0 0 40px rgba(239, 68, 68, 0.4);
+
+  --ease-elastic: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(245, 158, 11, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.06) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+   DOUBLE-BEZEL HARDWARE CONTAINER SYSTEM (Doppelrand)
+   ========================================================================== */
+.bezel-outer {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-outer-shell);
+  border-radius: 2rem;
+  padding: 0.375rem;
+  box-shadow: var(--shadow-card);
+  transition: all 0.3s var(--ease-elastic);
+}
+
+.bezel-outer:hover {
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: var(--shadow-card), var(--shadow-glow-amber);
+}
+
+.bezel-inner {
+  background: var(--bg-card-inner);
+  border-radius: calc(2rem - 0.375rem);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-inner-highlight);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Variant: Crimson Emergency Outer */
+.bezel-outer-crimson {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.04);
+}
+.bezel-outer-crimson:hover {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: var(--shadow-card), var(--shadow-glow-crimson);
+}
+.bezel-inner-crimson {
+  background: linear-gradient(135deg, rgba(30, 16, 25, 0.95), rgba(20, 12, 18, 0.98));
+}
+
+/* Variant: Emerald Success Outer */
+.bezel-outer-emerald {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.04);
+}
+.bezel-inner-emerald {
+  background: linear-gradient(135deg, rgba(14, 30, 24, 0.95), rgba(11, 23, 19, 0.98));
+}
+
+/* ==========================================================================
+   BUTTON-IN-BUTTON (ISLAND CTA) ARCHITECTURE
+   ========================================================================== */
+.btn-island {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  padding: 0.65rem 0.75rem 0.65rem 1.75rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-elastic);
+  position: relative;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-island:active {
+  transform: scale(0.98);
+}
+
+.btn-island-tray {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s var(--ease-elastic);
+}
+
+.btn-island:hover .btn-island-tray {
+  transform: translateX(3px);
+}
+
+/* Island Button Themes */
+.btn-island-amber {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #0b1120;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.35);
+}
+.btn-island-amber:hover {
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.5);
+}
+
+.btn-island-emerald {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+}
+.btn-island-emerald:hover {
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.5);
+}
+
+.btn-island-crimson {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  box-shadow: 0 4px 22px rgba(239, 68, 68, 0.4);
+}
+.btn-island-crimson:hover {
+  box-shadow: 0 6px 30px rgba(239, 68, 68, 0.6);
+}
+
+.btn-island-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-hairline);
+  color: var(--text-primary);
+}
+.btn-island-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================================================
+   APP HEADER & FLOATING ISLAND NAV
+   ========================================================================== */
+.app-header {
+  border-bottom: 1px solid var(--border-hairline);
+  background: rgba(7, 11, 20, 0.85);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 0.9rem 1.5rem;
+}
+
+.header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.brand-badge {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b1120;
+  box-shadow: var(--shadow-glow-amber);
+}
+
+.brand-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.brand-tagline {
+  font-size: 0.8rem;
+  color: var(--accent-amber);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Floating Island Tab Navigation */
+.view-tabs {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-hairline);
+  gap: 3px;
+}
+
+.view-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-elastic);
+  white-space: nowrap;
+}
+
+.view-tab:hover {
+  color: var(--text-primary);
+}
+
+.view-tab.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.view-tab.active.senior-tab {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #0b1120;
+  font-weight: 700;
+  box-shadow: var(--shadow-glow-amber);
+}
+
+.view-tab.active.caregiver-tab {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+}
+
+.view-tab.active.volunteer-tab {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+}
+
+.view-tab.active.coordinator-tab {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #ffffff;
+}
+
+/* System Live Status Pill */
+.system-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-emerald-light);
+}
+
+.status-dot-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-emerald);
+  box-shadow: 0 0 8px var(--accent-emerald);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+/* ==========================================================================
+   MAIN CONTAINER & SECTION RHYTHM
+   ========================================================================== */
+.main-content {
+  max-width: 1400px;
+  margin: 2rem auto;
+  padding: 0 1.5rem 5rem 1.5rem;
+}
+
+.eyebrow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 0.85rem;
+}
+
+.badge-amber {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--accent-amber);
+}
+
+.badge-emerald {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--accent-emerald-light);
+}
+
+.badge-crimson {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--accent-crimson-light);
+}
+
+.badge-indigo {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+}
+
+/* ==========================================================================
+   SENIOR PORTAL HERO: DIGITAL CLOCK & VOICE MIC
+   ========================================================================== */
+.senior-top-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.senior-clock-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.senior-clock-time {
+  font-size: 3rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.senior-clock-date {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 0.35rem;
+}
+
+.senior-pairing-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-hairline);
+  padding: 0.75rem 1.25rem;
+  border-radius: 1.25rem;
+}
+
+.pairing-code-digit {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  color: var(--accent-amber);
+}
+
+/* Voice Mic Action Center */
+.voice-hero-card {
+  text-align: center;
+  padding: 3rem 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.mic-button-giant {
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #0b1120;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem auto;
+  box-shadow: 0 0 0 14px rgba(245, 158, 11, 0.15), var(--shadow-glow-amber);
+  transition: all 0.3s var(--ease-bounce);
+  position: relative;
+}
+
+.mic-button-giant:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 20px rgba(245, 158, 11, 0.25), 0 0 50px rgba(245, 158, 11, 0.5);
+}
+
+.mic-button-giant.listening {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  box-shadow: 0 0 0 20px rgba(239, 68, 68, 0.25), var(--shadow-glow-crimson);
+  animation: pulse-mic 1.6s infinite;
+}
+
+@keyframes pulse-mic {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { box-shadow: 0 0 0 45px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Audio Waveform Animation */
+.waveform-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 36px;
+  margin: 1rem 0;
+}
+
+.waveform-bar {
+  width: 5px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--accent-amber);
+  transition: height 0.15s ease;
+}
+
+.waveform-container.active .waveform-bar {
+  background: var(--accent-cyan);
+  animation: wave-bar 0.9s ease-in-out infinite alternate;
+}
+
+.waveform-container.active .waveform-bar:nth-child(2) { animation-delay: 0.1s; }
+.waveform-container.active .waveform-bar:nth-child(3) { animation-delay: 0.2s; }
+.waveform-container.active .waveform-bar:nth-child(4) { animation-delay: 0.3s; }
+.waveform-container.active .waveform-bar:nth-child(5) { animation-delay: 0.4s; }
+.waveform-container.active .waveform-bar:nth-child(6) { animation-delay: 0.25s; }
+.waveform-container.active .waveform-bar:nth-child(7) { animation-delay: 0.15s; }
+.waveform-container.active .waveform-bar:nth-child(8) { animation-delay: 0.35s; }
+
+@keyframes wave-bar {
+  0% { height: 6px; }
+  100% { height: 34px; }
+}
+
+.voice-headline {
+  font-size: 2.25rem;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.voice-subtext {
+  font-size: 1.15rem;
+  color: var(--text-secondary);
+  max-width: 600px;
+  margin: 0 auto 1.5rem auto;
+}
+
+.prompt-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.prompt-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-secondary);
+  padding: 0.55rem 1.15rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.prompt-chip:hover {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--accent-amber);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   DOSE OCCURRENCES GRID (ASYMMETRICAL BENTO)
+   ========================================================================== */
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.75rem;
+  color: #ffffff;
+}
+
+.dose-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.dose-card-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 240px;
+}
+
+.dose-time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dose-time-display {
+  font-size: 1.85rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--accent-amber);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dose-name {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+}
+
+.dose-strength {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.meal-relation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  width: fit-content;
+  margin-bottom: 1.5rem;
+}
+
+.dose-action-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* ==========================================================================
+   SOS EMERGENCY FLOATING BANNER
+   ========================================================================== */
+.sos-floating-strip {
+  margin-top: 2rem;
+}
+
+.sos-content-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.sos-heading {
+  font-size: 1.85rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.25rem;
+}
+
+.sos-subheading {
+  color: #fca5a5;
+  font-size: 1.05rem;
+}
+
+/* ==========================================================================
+   CAREGIVER, VOLUNTEER & COORDINATOR GRIDS
+   ========================================================================== */
+.portal-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.portal-grid-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .portal-grid-2col,
+  .portal-grid-3col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-group-custom {
+  margin-bottom: 1.25rem;
+}
+
+.form-label-custom {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.form-input-custom {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-hairline);
+  border-radius: 14px;
+  padding: 0.95rem 1.25rem;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.form-input-custom:focus {
+  border-color: var(--accent-indigo);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+/* Adherence Score Ring */
+.adherence-score-box {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 1.25rem;
+  border: 1px solid var(--border-hairline);
+  margin-bottom: 1.5rem;
+}
+
+.score-big-number {
+  font-size: 3rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--accent-emerald);
+  line-height: 1;
+}
+
+/* Volunteer Task Item */
+.volunteer-task-card {
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-hairline);
+  border-radius: 1.25rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* SOS Live Feed Item */
+.sos-feed-item {
+  padding: 1.25rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 1.25rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* ==========================================================================
+   MODAL DIALOGS
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1.5rem;
+}
+
+.modal-bezel-outer {
+  max-width: 580px;
+  width: 100%;
+}
+
+.modal-details-table {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  margin: 1.5rem 0;
+}
+
+.modal-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border-hairline);
+}
+.modal-detail-row:last-child {
+  border-bottom: none;
+}
+
+.modal-detail-key {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.modal-detail-val {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* SOS Countdown Ring */
+.sos-countdown-giant {
+  font-size: 6rem;
+  font-family: var(--font-display);
+  font-weight: 900;
+  color: var(--accent-crimson);
+  line-height: 1;
+  margin: 1.5rem 0;
+  animation: countdown-pulse 1s infinite alternate;
+}
+
+@keyframes countdown-pulse {
+  from { transform: scale(0.95); opacity: 0.9; }
+  to { transform: scale(1.05); opacity: 1; }
+}
+
+@media (max-width: 768px) {
+  .header-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .view-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .senior-clock-time {
+    font-size: 2.25rem;
+  }
+  .mic-button-giant {
+    width: 120px;
+    height: 120px;
+  }
+  .dose-grid {
+    grid-template-columns: 1fr;
+  }
+}

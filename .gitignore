@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+.turbo/
+
+# Environment files
+.env
+.env.local
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Database & Docker storage
+postgres_data/
+redis_data/
+rabbitmq_data/
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
