@@ -133,7 +133,7 @@ export const SeniorPortal: React.FC<SeniorPortalProps> = ({
               <KeyRound size={22} color="var(--accent-amber)" />
               <div>
                 <div style={{ fontWeight: 800, color: "#fff", fontSize: "1.05rem" }}>
-                  Guest Mode — No Senior Account Active
+                  Guest Mode - No Senior Account Active
                 </div>
                 <div style={{ color: "var(--text-secondary)", fontSize: "0.88rem" }}>
                   Enter your 4-digit code, create a new profile, or choose a persona to manage your schedule.

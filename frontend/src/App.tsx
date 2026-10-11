@@ -202,7 +202,7 @@ export default function App() {
     speakText(`Reminder: ${seniorGreeting}it is time for your ${dose.medicineName} ${dose.dosage}. Please take it with water.`);
 
     triggerNotification(`🔔 Medicine Due: ${dose.medicineName}`, {
-      body: `${dose.time} — Take ${dose.dosage} (${dose.mealRelation}). Open Community Companion to confirm.`,
+      body: `${dose.time} - Take ${dose.dosage} (${dose.mealRelation}). Open Community Companion to confirm.`,
       requireInteraction: true
     });
 

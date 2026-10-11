@@ -77,7 +77,7 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({
         <div className="bezel-outer" style={{ marginBottom: "2.5rem" }}>
           <div className="bezel-inner" style={{ textAlign: "center", padding: "2.5rem" }}>
             <ShieldCheck size={48} color="var(--accent-emerald)" style={{ margin: "0 auto 1rem auto" }} />
-            <h3 style={{ color: "#fff", fontSize: "1.3rem" }}>All Clear — No Active Emergencies</h3>
+            <h3 style={{ color: "#fff", fontSize: "1.3rem" }}>All Clear - No Active Emergencies</h3>
             <p style={{ color: "var(--text-muted)" }}>
               RabbitMQ queue <code>sos_queue</code> is clear. Automated multi-tier escalation stands by.
             </p>

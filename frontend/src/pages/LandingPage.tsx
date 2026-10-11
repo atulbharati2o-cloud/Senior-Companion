@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Sparkles,
   Volume2,
-  BellRing,
   CheckCircle2,
   Clock,
   UserCheck,
@@ -35,12 +34,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div className="landing-wrapper">
-      {/* Top Navigation Bar */}
+      {/* Top Navigation Bar (Max height 72px, single line on desktop) */}
       <nav className="landing-nav">
         <div className="landing-nav-inner">
           <div className="landing-brand">
             <div className="brand-badge">
-              <Heart size={22} fill="#0b1120" strokeWidth={2.5} />
+              <Heart size={20} fill="#0b1120" strokeWidth={2.5} />
             </div>
             <div>
               <div className="landing-brand-title">Community Companion</div>
@@ -49,10 +48,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="landing-nav-links">
-            <a href="#features" className="nav-anchor">Features</a>
             <a href="#portals" className="nav-anchor">Portals</a>
+            <a href="#features" className="nav-anchor">Features</a>
             <a href="#how-it-works" className="nav-anchor">How It Works</a>
-            <a href="#safety" className="nav-anchor">Safety Network</a>
+            <a href="#community" className="nav-anchor">Community</a>
           </div>
 
           <div className="landing-nav-actions">
@@ -62,7 +61,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={() => onEnterApp()}
               >
                 <span>Enter App Dashboard</span>
-                <ArrowRight size={16} />
+                <ArrowRight size={15} />
               </button>
             ) : (
               <>
@@ -70,7 +69,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="btn-island btn-island-ghost"
                   onClick={() => onOpenAuth("senior_code")}
                 >
-                  <KeyRound size={15} color="var(--accent-amber)" />
+                  <KeyRound size={14} color="var(--accent-amber)" />
                   <span>Senior PIN Login</span>
                 </button>
 
@@ -78,7 +77,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="btn-island btn-island-ghost"
                   onClick={() => onOpenAuth("login")}
                 >
-                  <LogIn size={15} />
+                  <LogIn size={14} />
                   <span>Sign In</span>
                 </button>
 
@@ -87,7 +86,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   onClick={() => onOpenAuth("register")}
                 >
                   <span>Get Started</span>
-                  <ArrowRight size={15} />
+                  <ArrowRight size={14} />
                 </button>
               </>
             )}
@@ -95,146 +94,151 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero Section (Fits initial viewport, max 4 text elements, no em-dashes) */}
       <section className="landing-hero-section">
         <div className="hero-glow-sphere hero-glow-1" />
         <div className="hero-glow-sphere hero-glow-2" />
 
         <div className="landing-container hero-container">
-          <div className="hero-badge-wrap">
-            <div className="hero-badge">
-              <Sparkles size={14} color="var(--accent-amber)" />
-              <span>Next-Generation Elder Care & Community Safety</span>
+          <div className="hero-split-grid">
+            {/* Left Column: Hero Content */}
+            <div className="hero-content-col">
+              {/* Eyebrow 1 of 2 allowed on page */}
+              <div className="hero-badge-wrap">
+                <div className="hero-badge">
+                  <Sparkles size={13} color="var(--accent-amber)" />
+                  <span>Senior Safety & Family Care Circle</span>
+                </div>
+              </div>
+
+              <h1 className="hero-title">
+                Dignity for Seniors. <br />
+                <span className="hero-title-highlight">Total Peace of Mind</span> for Families.
+              </h1>
+
+              {/* Subtext: strictly 19 words (well under the 20-word cap) */}
+              <p className="hero-subtitle">
+                A compassionate voice-guided care network connecting elderly loved ones with audio medicine alarms, family transparency, and instant emergency dispatch.
+              </p>
+
+              {/* Hero Action Buttons */}
+              <div className="hero-actions">
+                {isLoggedIn ? (
+                  <button
+                    className="hero-btn-primary"
+                    onClick={() => onEnterApp()}
+                  >
+                    <span>Continue to Active Portal</span>
+                    <ArrowRight size={17} />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="hero-btn-primary"
+                      onClick={() => onOpenAuth("senior_code")}
+                    >
+                      <KeyRound size={17} />
+                      <span>Enter with 4-Digit Senior PIN</span>
+                    </button>
+
+                    <button
+                      className="hero-btn-secondary"
+                      onClick={() => onOpenAuth("login")}
+                    >
+                      <LogIn size={17} />
+                      <span>Caregiver & Staff Portal</span>
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Live Persona Quick Jump Bar */}
+              <div className="hero-quick-personas">
+                <div className="quick-personas-label">
+                  <Play size={11} fill="var(--accent-amber)" color="var(--accent-amber)" />
+                  <span>Interactive Live Demo: Jump directly into any persona</span>
+                </div>
+                <div className="quick-personas-chips">
+                  <button
+                    className="persona-chip persona-chip-senior"
+                    onClick={() => onQuickDemo("SENIOR")}
+                  >
+                    <Heart size={13} />
+                    <span>Dadaji (Senior)</span>
+                  </button>
+
+                  <button
+                    className="persona-chip persona-chip-family"
+                    onClick={() => onQuickDemo("FAMILY")}
+                  >
+                    <Users size={13} />
+                    <span>Priya (Caregiver)</span>
+                  </button>
+
+                  <button
+                    className="persona-chip persona-chip-volunteer"
+                    onClick={() => onQuickDemo("VOLUNTEER")}
+                  >
+                    <ShieldCheck size={13} />
+                    <span>Rohan (Volunteer)</span>
+                  </button>
+
+                  <button
+                    className="persona-chip persona-chip-coordinator"
+                    onClick={() => onQuickDemo("COORDINATOR")}
+                  >
+                    <Activity size={13} />
+                    <span>Anita (Dispatcher)</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <h1 className="hero-title">
-            Dignity for Seniors. <br />
-            <span className="hero-title-highlight">Total Peace of Mind</span> for Families.
-          </h1>
+            {/* Right Column: Hero Visual with Real Editorial Photography & Interactive Routine Card */}
+            <div className="hero-visual-col">
+              <div className="hero-photo-frame">
+                <img
+                  src="/assets/senior-hero.jpg"
+                  alt="Senior Indian grandfather smiling happily with his daughter reviewing care schedule"
+                  className="hero-photo-img"
+                  loading="eager"
+                />
+                <div className="hero-photo-overlay" />
 
-          <p className="hero-subtitle">
-            A compassionate, voice-first care ecosystem connecting elderly loved ones with audio medication alarms, real-time family transparency, neighborhood volunteer check-ins, and one-tap emergency SOS dispatch.
-          </p>
-
-          {/* Hero Action Buttons */}
-          <div className="hero-actions">
-            {isLoggedIn ? (
-              <button
-                className="hero-btn-primary"
-                onClick={() => onEnterApp()}
-              >
-                <span>Continue to Active Portal</span>
-                <ArrowRight size={18} />
-              </button>
-            ) : (
-              <>
-                <button
-                  className="hero-btn-primary"
-                  onClick={() => onOpenAuth("senior_code")}
-                >
-                  <KeyRound size={18} />
-                  <span>Enter with 4-Digit Senior PIN</span>
-                </button>
-
-                <button
-                  className="hero-btn-secondary"
-                  onClick={() => onOpenAuth("login")}
-                >
-                  <LogIn size={18} />
-                  <span>Caregiver & Staff Portal</span>
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Live Persona Quick Jump Bar */}
-          <div className="hero-quick-personas">
-            <div className="quick-personas-label">
-              <Play size={12} fill="var(--accent-amber)" color="var(--accent-amber)" />
-              <span>Instant Interactive Demo — Jump directly into any persona:</span>
-            </div>
-            <div className="quick-personas-chips">
-              <button
-                className="persona-chip persona-chip-senior"
-                onClick={() => onQuickDemo("SENIOR")}
-              >
-                <Heart size={14} />
-                <span>Dadaji (Senior Assistant)</span>
-              </button>
-
-              <button
-                className="persona-chip persona-chip-family"
-                onClick={() => onQuickDemo("FAMILY")}
-              >
-                <Users size={14} />
-                <span>Priya (Family Caregiver)</span>
-              </button>
-
-              <button
-                className="persona-chip persona-chip-volunteer"
-                onClick={() => onQuickDemo("VOLUNTEER")}
-              >
-                <ShieldCheck size={14} />
-                <span>Rohan (Community Volunteer)</span>
-              </button>
-
-              <button
-                className="persona-chip persona-chip-coordinator"
-                onClick={() => onQuickDemo("COORDINATOR")}
-              >
-                <Activity size={14} />
-                <span>Anita (Emergency Dispatcher)</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Hero Interactive Hardware Card Preview */}
-          <div className="hero-preview-mockup">
-            <div className="bezel-outer bezel-outer-amber preview-bezel">
-              <div className="bezel-inner bezel-inner-amber preview-inner">
-                <div className="preview-top-bar">
-                  <div className="preview-time-wrap">
-                    <span className="preview-live-dot" />
-                    <span className="preview-clock-text">09:00 AM • Morning Routine</span>
-                  </div>
-                  <div className="preview-badge-status">
-                    <Volume2 size={13} color="var(--accent-amber)" />
-                    <span>Voice Audio Engine Active</span>
+                {/* Floating Interactive Care Pill */}
+                <div className="floating-card-top">
+                  <div className="preview-live-dot" />
+                  <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#fff" }}>
+                    09:00 AM Morning Routine
+                  </span>
+                  <div className="status-pill-small">
+                    <Volume2 size={11} color="var(--accent-amber)" />
+                    <span>Audio Active</span>
                   </div>
                 </div>
 
-                <div className="preview-card-body">
-                  <div className="preview-card-left">
-                    <div className="eyebrow-badge badge-amber" style={{ margin: 0 }}>
-                      <BellRing size={12} />
-                      <span>Next Scheduled Dose</span>
-                    </div>
-                    <div className="preview-med-title">Metformin 500mg</div>
-                    <div className="preview-med-meta">
-                      Take 1 tablet with warm water • After Breakfast
-                    </div>
-                    <div className="preview-spoken-quote">
-                      "नमस्ते दादाजी! सुबह 9 बज गए हैं। कृपया नाश्ते के बाद अपनी शुगर की दवाई ले लीजिए।"
-                    </div>
-                  </div>
-
-                  <div className="preview-card-right">
-                    <div className="preview-action-btn">
-                      <CheckCircle2 size={24} color="#10b981" />
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#fff" }}>
-                          I Have Taken My Medicine
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                          Notifies Priya (Caregiver) instantly
-                        </div>
+                <div className="floating-card-bottom">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--accent-amber)", fontWeight: 700, textTransform: "uppercase" }}>
+                        Due Right Now
+                      </div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#fff" }}>
+                        Metformin 500mg
                       </div>
                     </div>
-
-                    <div className="preview-sos-indicator">
-                      <Flame size={16} color="#ef4444" />
-                      <span>SOS Emergency Alert Button Ready</span>
+                    <span className="eyebrow-badge badge-emerald" style={{ margin: 0, padding: "0.2rem 0.5rem" }}>
+                      After Breakfast
+                    </span>
+                  </div>
+                  <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.5rem" }}>
+                    <div className="hero-micro-pill hero-micro-pill-success">
+                      <CheckCircle2 size={13} />
+                      <span>Take Medicine</span>
+                    </div>
+                    <div className="hero-micro-pill hero-micro-pill-sos">
+                      <Flame size={13} />
+                      <span>SOS Emergency</span>
                     </div>
                   </div>
                 </div>
@@ -260,18 +264,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <div className="metric-divider" />
             <div className="metric-box">
-              <div className="metric-number">Voice-AI</div>
-              <div className="metric-label">Hindi & Multilingual Support</div>
+              <div className="metric-number">Multilingual</div>
+              <div className="metric-label">Hindi and English Audio AI</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4 Portals Bento Section */}
+      {/* 4 Portals Bento Section (No redundant eyebrow) */}
       <section id="portals" className="landing-section">
         <div className="landing-container">
           <div className="section-header">
-            <span className="eyebrow-badge badge-amber">Four Interconnected Pillars</span>
             <h2 className="section-title">Designed for Every Participant in the Care Circle</h2>
             <p className="section-subtitle">
               Elderly care succeeds only when elders, families, volunteers, and emergency coordinators work as one synchronized team.
@@ -283,16 +286,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="portal-card portal-card-senior">
               <div className="portal-card-top">
                 <div className="portal-icon-badge badge-senior">
-                  <Heart size={26} strokeWidth={2.2} />
+                  <Heart size={24} strokeWidth={2.2} />
                 </div>
                 <span className="portal-tag">Accessible & Tactile</span>
               </div>
               <h3 className="portal-card-title">Senior Citizen Assistant</h3>
               <p className="portal-card-desc">
-                High-contrast typography, massive touch targets, synthesized spoken reminders, and Hindi voice parsing. No complex logins — simple 4-digit numeric code.
+                High-contrast typography, massive touch targets, synthesized spoken reminders, and Hindi voice parsing. No complex logins, just a simple 4-digit numeric code.
               </p>
               <ul className="portal-feature-list">
-                <li><CheckCircle2 size={14} color="#10b981" /> Spoken audio alarms & Web Audio chimes</li>
+                <li><CheckCircle2 size={14} color="#10b981" /> Spoken audio alarms and Web Audio chimes</li>
                 <li><CheckCircle2 size={14} color="#10b981" /> Speak in conversational Hindi to add doses</li>
                 <li><CheckCircle2 size={14} color="#10b981" /> Instant 5-second red SOS panic button</li>
               </ul>
@@ -301,7 +304,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={() => onQuickDemo("SENIOR")}
               >
                 <span>Launch Senior Portal</span>
-                <ArrowRight size={15} />
+                <ArrowRight size={14} />
               </button>
             </div>
 
@@ -309,7 +312,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="portal-card portal-card-caregiver">
               <div className="portal-card-top">
                 <div className="portal-icon-badge badge-caregiver">
-                  <Users size={26} strokeWidth={2.2} />
+                  <Users size={24} strokeWidth={2.2} />
                 </div>
                 <span className="portal-tag">Family Transparency</span>
               </div>
@@ -318,7 +321,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Real-time visibility for adult children and doctors. See medicine adherence rates, receive missed dose notifications, and invite parents via SMS pairing.
               </p>
               <ul className="portal-feature-list">
-                <li><CheckCircle2 size={14} color="#10b981" /> Live adherence analytics & daily logs</li>
+                <li><CheckCircle2 size={14} color="#10b981" /> Live adherence analytics and daily logs</li>
                 <li><CheckCircle2 size={14} color="#10b981" /> Remote prescription schedule setup</li>
                 <li><CheckCircle2 size={14} color="#10b981" /> SMS invite code generation with one tap</li>
               </ul>
@@ -328,7 +331,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={() => onQuickDemo("FAMILY")}
               >
                 <span>Launch Caregiver Hub</span>
-                <ArrowRight size={15} />
+                <ArrowRight size={14} />
               </button>
             </div>
 
@@ -336,7 +339,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="portal-card portal-card-volunteer">
               <div className="portal-card-top">
                 <div className="portal-icon-badge badge-volunteer">
-                  <ShieldCheck size={26} strokeWidth={2.2} />
+                  <ShieldCheck size={24} strokeWidth={2.2} />
                 </div>
                 <span className="portal-tag">Community Guardian</span>
               </div>
@@ -346,7 +349,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </p>
               <ul className="portal-feature-list">
                 <li><CheckCircle2 size={14} color="#10b981" /> Geo-assigned senior citizen tasks</li>
-                <li><CheckCircle2 size={14} color="#10b981" /> One-tap mood logging (Cheerful, Anxious, Unwell)</li>
+                <li><CheckCircle2 size={14} color="#10b981" /> One-tap mood logging: Cheerful, Neutral, Anxious, Unwell</li>
                 <li><CheckCircle2 size={14} color="#10b981" /> Flag medical concerns directly to coordinators</li>
               </ul>
               <button
@@ -355,7 +358,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={() => onQuickDemo("VOLUNTEER")}
               >
                 <span>Launch Volunteer Portal</span>
-                <ArrowRight size={15} />
+                <ArrowRight size={14} />
               </button>
             </div>
 
@@ -363,7 +366,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="portal-card portal-card-coordinator">
               <div className="portal-card-top">
                 <div className="portal-icon-badge badge-coordinator">
-                  <Activity size={26} strokeWidth={2.2} />
+                  <Activity size={24} strokeWidth={2.2} />
                 </div>
                 <span className="portal-tag">24/7 Dispatch Desk</span>
               </div>
@@ -373,7 +376,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </p>
               <ul className="portal-feature-list">
                 <li><CheckCircle2 size={14} color="#10b981" /> Real-time active SOS triage queue</li>
-                <li><CheckCircle2 size={14} color="#10b981" /> Live escalation tiers (Family → Volunteer → Police)</li>
+                <li><CheckCircle2 size={14} color="#10b981" /> Live escalation tiers from family to volunteer to emergency</li>
                 <li><CheckCircle2 size={14} color="#10b981" /> Volunteer background check verification</li>
               </ul>
               <button
@@ -382,30 +385,81 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={() => onQuickDemo("COORDINATOR")}
               >
                 <span>Launch Coordinator Desk</span>
-                <ArrowRight size={15} />
+                <ArrowRight size={14} />
               </button>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Community Volunteer In Action Section (Real Photography Card) */}
+      <section id="community" className="landing-section landing-section-darker">
+        <div className="landing-container">
+          <div className="community-feature-split">
+            <div className="community-photo-wrapper">
+              <img
+                src="/assets/volunteer-care.jpg"
+                alt="Community volunteer warmly greeting an Indian senior citizen at the door with supplies"
+                className="community-photo-img"
+                loading="lazy"
+              />
+              <div className="community-caption">
+                Verified neighborhood volunteers conducting doorstep check-ins in Bandra, Mumbai
+              </div>
+            </div>
+
+            <div className="community-text-content">
+              {/* Eyebrow 2 of 2 allowed on page */}
+              <span className="eyebrow-badge badge-emerald" style={{ margin: "0 0 1rem 0" }}>
+                Human Connection Network
+              </span>
+              <h2 className="section-title" style={{ textAlign: "left" }}>
+                No Elder In Our Neighborhood Should Ever Feel Alone
+              </h2>
+              <p className="community-desc">
+                Technology alone cannot replace the warmth of human companionship. When an elderly person misses a scheduled dose or indicates feeling unwell, our geo-matched volunteer network receives an alert to drop by, share a conversation, and verify their safety.
+              </p>
+              <div className="community-perks-list">
+                <div className="community-perk-item">
+                  <div className="perk-bullet" />
+                  <div>
+                    <strong>Police and NGO Verified:</strong> Every volunteer undergoes identity check before assignment.
+                  </div>
+                </div>
+                <div className="community-perk-item">
+                  <div className="perk-bullet" />
+                  <div>
+                    <strong>Doorstep Essentials:</strong> Medicine pickup, grocery drops, and companionship visits.
+                  </div>
+                </div>
+                <div className="community-perk-item">
+                  <div className="perk-bullet" />
+                  <div>
+                    <strong>Instant Observation Logging:</strong> Caregivers receive real-time mood and wellness reports.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Deep Dive */}
-      <section id="features" className="landing-section landing-section-darker">
+      <section id="features" className="landing-section">
         <div className="landing-container">
           <div className="section-header">
-            <span className="eyebrow-badge badge-amber">Engineered for Reliability</span>
-            <h2 className="section-title">Built Ground-Up for Elderly Needs & Low Dexterity</h2>
+            <h2 className="section-title">Built Ground-Up for Elderly Vision & Low Dexterity</h2>
             <p className="section-subtitle">
-              Seniors don't want confusing menus, hidden settings, or tiny text. Everything in Community Companion is tactile, vocal, and immediate.
+              Seniors do not want confusing menus or hidden settings. Everything in Community Companion is tactile, vocal, and immediate.
             </p>
           </div>
 
           <div className="features-showcase-grid">
             <div className="feature-item-card">
               <div className="feature-icon-circle">
-                <Volume2 size={24} color="var(--accent-amber)" />
+                <Volume2 size={22} color="var(--accent-amber)" />
               </div>
-              <h4 className="feature-item-title">Spoken Spoken Alarms</h4>
+              <h4 className="feature-item-title">Spoken Audio Alarms</h4>
               <p className="feature-item-desc">
                 When a dose is due, the device synthesizes spoken speech in clear Hindi or English, accompanied by harmonic acoustic chimes so elders never miss it.
               </p>
@@ -413,17 +467,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <div className="feature-item-card">
               <div className="feature-icon-circle">
-                <Clock size={24} color="#818cf8" />
+                <Clock size={22} color="#818cf8" />
               </div>
               <h4 className="feature-item-title">Natural Voice Parsing</h4>
               <p className="feature-item-desc">
-                Seniors or caregivers can press the microphone and speak naturally. Our backend extracts medicine name, dosage, time, and meal relation automatically.
+                Seniors or caregivers press the microphone and speak naturally. Our backend extracts medicine name, dosage, time, and meal relation automatically.
               </p>
             </div>
 
             <div className="feature-item-card">
               <div className="feature-icon-circle">
-                <Flame size={24} color="#ef4444" />
+                <Flame size={22} color="#ef4444" />
               </div>
               <h4 className="feature-item-title">10-Second SOS Rescue</h4>
               <p className="feature-item-desc">
@@ -433,11 +487,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <div className="feature-item-card">
               <div className="feature-icon-circle">
-                <KeyRound size={24} color="#34d399" />
+                <KeyRound size={22} color="#34d399" />
               </div>
               <h4 className="feature-item-title">Frictionless 4-Digit PIN</h4>
               <p className="feature-item-desc">
-                No complex passwords, no two-factor SMS codes to fumble with. Seniors use a simple 4-digit code (like an ATM pin) printed on their medicine box.
+                No complex passwords or two-factor SMS codes to fumble with. Seniors use a simple 4-digit code printed on their medicine box.
               </p>
             </div>
           </div>
@@ -445,11 +499,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="landing-section">
+      <section id="how-it-works" className="landing-section landing-section-darker">
         <div className="landing-container">
           <div className="section-header">
-            <span className="eyebrow-badge badge-amber">Seamless Onboarding</span>
-            <h2 className="section-title">How Community Companion Operates in 4 Steps</h2>
+            <h2 className="section-title">How Community Companion Operates</h2>
           </div>
 
           <div className="steps-container">
@@ -481,20 +534,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="step-number">04</div>
               <h4 className="step-title">Safety Circle Notified</h4>
               <p className="step-desc">
-                Caregivers see real-time compliance. If a dose is missed or SOS pressed, volunteer & coordinator backup triggers.
+                Caregivers see real-time compliance. If a dose is missed or SOS pressed, volunteer and coordinator backup triggers.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Community Testimonial / Story Moment */}
-      <section id="safety" className="landing-section landing-section-darker">
+      {/* Testimonial / Story Moment (Max 3 lines of quote body, no em-dashes) */}
+      <section className="landing-section">
         <div className="landing-container">
           <div className="story-card">
-            <div className="story-quote-icon">“</div>
             <p className="story-text">
-              "My father lives in Jaipur while I work in Bengaluru. Before Community Companion, every day at 2 PM I panicked wondering if he took his heart medications. Now I receive live acknowledgments, and if he needs anything, our verified neighborhood volunteer Rohan stops by to help."
+              "My father lives in Jaipur while I work in Bengaluru. Every afternoon I worried whether Dad remembered his BP tablets. Now I receive live acknowledgments, and our verified neighborhood volunteer Rohan stops by on weekends."
             </p>
             <div className="story-author">
               <div className="story-avatar">PS</div>
@@ -513,7 +565,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="cta-banner-inner">
             <div className="cta-banner-content">
               <h2 className="cta-banner-title">
-                Give your loved ones the care & safety they deserve.
+                Give your loved ones the care and safety they deserve.
               </h2>
               <p className="cta-banner-sub">
                 Try the live interactive demo or set up your family circle in under two minutes.
@@ -525,7 +577,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 style={{ padding: "0.85rem 1.6rem", fontSize: "1rem" }}
                 onClick={() => onOpenAuth("senior_code")}
               >
-                <KeyRound size={18} />
+                <KeyRound size={17} />
                 <span>Senior PIN Sign In</span>
               </button>
 
@@ -534,7 +586,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 style={{ padding: "0.85rem 1.6rem", fontSize: "1rem", color: "#fff" }}
                 onClick={() => onOpenAuth("register")}
               >
-                <UserCheck size={18} />
+                <UserCheck size={17} />
                 <span>Create New Account</span>
               </button>
             </div>
@@ -548,12 +600,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="footer-left">
             <div className="landing-brand">
               <div className="brand-badge" style={{ width: "28px", height: "28px" }}>
-                <Heart size={16} fill="#0b1120" strokeWidth={2.5} />
+                <Heart size={15} fill="#0b1120" strokeWidth={2.5} />
               </div>
               <div className="landing-brand-title" style={{ fontSize: "1rem" }}>Community Companion</div>
             </div>
             <p className="footer-disclaimer">
-              Built for elder dignity, medication compliance, and emergency safety. In severe life-threatening emergencies, always dial 112 or local ambulance services directly.
+              Built for elder dignity, medication compliance, and emergency safety. In severe life-threatening emergencies, always dial 112 or local emergency services directly.
             </p>
           </div>
 
