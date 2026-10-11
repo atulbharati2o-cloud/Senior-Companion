@@ -9,7 +9,8 @@ import {
   AuthTokens,
   ActiveSession,
   PortalTab,
-  AppView
+  AppView,
+  LinkedSenior
 } from "./types";
 import { Header } from "./components/common/Header";
 import { Toast } from "./components/common/Toast";
@@ -105,6 +106,7 @@ export default function App() {
   const [isInviting, setIsInviting] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [masterSchedules, setMasterSchedules] = useState<MasterSchedule[]>([]);
+  const [linkedSenior, setLinkedSenior] = useState<LinkedSenior | null>(null);
 
   // Volunteer Portal State
   const [volunteerTasks, setVolunteerTasks] = useState<VolunteerTask[]>([]);
@@ -519,7 +521,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchOccurrences]);
 
-  // Fetch Caregiver Master Schedules
+  // Fetch Caregiver Master Schedules & Linked Parent Info
   useEffect(() => {
     if (activeTab === "caregiver") {
       fetch("/api/reminders")
@@ -530,8 +532,29 @@ export default function App() {
           }
         })
         .catch(() => {});
+
+      fetch("/api/reminders/caregiver/parent")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success && json.data) {
+            setLinkedSenior(json.data);
+          }
+        })
+        .catch(() => {});
     }
   }, [activeTab]);
+
+  // Strict Role Guard: Keep users within their authorized portal
+  useEffect(() => {
+    const isSenior = activeSession?.role === "SENIOR" || (!activeSession && auth.seniorName);
+    if (isSenior && activeTab !== "senior") {
+      setActiveTab("senior");
+    } else if (activeSession?.role === "VOLUNTEER" && activeTab !== "volunteer") {
+      setActiveTab("volunteer");
+    } else if (activeSession?.role === "FAMILY" && (activeTab === "volunteer" || activeTab === "coordinator")) {
+      setActiveTab("caregiver");
+    }
+  }, [activeSession?.role, auth.seniorName, activeTab]);
 
   // Fetch Volunteer Tasks & Assigned Seniors
   const fetchVolunteerData = useCallback(async () => {
@@ -818,6 +841,12 @@ export default function App() {
       const json = await res.json();
       if (json.success && json.data) {
         setInviteResult(json.data);
+        setLinkedSenior({
+          id: json.data.seniorId,
+          fullName: json.data.parentName,
+          pairingCode: json.data.pairingCode,
+          isPaired: false
+        });
         showToast(`Invite created! Pairing code: ${json.data.pairingCode}`);
       }
     } catch {
@@ -937,8 +966,10 @@ export default function App() {
       }
       setCurrentView("app");
       setShowAuthModal(false);
+      return true;
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);
+      return false;
     }
   };
 
@@ -1049,7 +1080,7 @@ export default function App() {
         setShowAuthModal(false);
       }
       setCurrentView("app");
-      return registeredCode;
+      return registeredCode || "SUCCESS";
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);
       return null;
@@ -1183,7 +1214,10 @@ export default function App() {
             setShowAuthModal(true);
           }}
           onEnterApp={(portal) => {
-            if (portal) setActiveTab(portal);
+            if (portal) {
+              const tab: PortalTab = (portal as any) === "family" ? "caregiver" : portal;
+              setActiveTab(tab);
+            }
             setCurrentView("app");
             localStorage.setItem("companion_active_view", "app");
           }}
@@ -1252,6 +1286,7 @@ export default function App() {
                 takenCount={takenCount}
                 totalDoses={doses.length}
                 masterSchedules={masterSchedules}
+                linkedSenior={linkedSenior}
               />
             )}
 

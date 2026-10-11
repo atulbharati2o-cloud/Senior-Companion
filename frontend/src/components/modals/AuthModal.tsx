@@ -19,7 +19,7 @@ interface AuthModalProps {
   auth: AuthTokens;
   activeSession?: ActiveSession | null;
   onSeniorLogin: (code: string) => Promise<void>;
-  onStandardLogin: (identifier: string, pass: string) => Promise<void>;
+  onStandardLogin: (identifier: string, pass: string) => Promise<boolean | void>;
   onDemoSwitch: (role: "SENIOR" | "FAMILY" | "VOLUNTEER" | "COORDINATOR") => Promise<void>;
   onRegister: (payload: any) => Promise<string | null>;
   onLogout: () => void;
@@ -84,9 +84,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setIsLoggingIn(true);
     try {
-      await onStandardLogin(loginIdentifier, loginPassword);
-      setLoginIdentifier("");
-      setLoginPassword("");
+      const success = await onStandardLogin(loginIdentifier, loginPassword);
+      if (success !== false) {
+        setLoginIdentifier("");
+        setLoginPassword("");
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -105,15 +107,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         preferredLanguage: regLanguage,
         pincode: regPincode || undefined
       });
-      if (regRole === "SENIOR" && code) {
-        setNewPairingCode(code);
-      } else {
-        onClose();
+      if (code) {
+        if (regRole === "SENIOR" && code !== "SUCCESS") {
+          setNewPairingCode(code);
+        } else {
+          onClose();
+        }
+        setRegFullName("");
+        setRegEmail("");
+        setRegPhone("");
+        setRegPassword("");
       }
-      setRegFullName("");
-      setRegEmail("");
-      setRegPhone("");
-      setRegPassword("");
     } finally {
       setIsRegistering(false);
     }

@@ -88,3 +88,12 @@ export type PortalTab = "senior" | "caregiver" | "volunteer" | "coordinator";
 
 export type AppView = "landing" | "app";
 
+export interface LinkedSenior {
+  id: string;
+  fullName: string;
+  phone?: string;
+  pairingCode?: string;
+  isPaired?: boolean;
+  preferredLanguage?: string;
+}
+

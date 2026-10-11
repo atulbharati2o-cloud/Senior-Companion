@@ -69,37 +69,91 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Floating Island Portal Tabs */}
-        <nav className="view-tabs" role="tablist">
-          <button
-            className={`view-tab ${activeTab === "senior" ? "active senior-tab" : ""}`}
-            onClick={() => setActiveTab("senior")}
-          >
-            <Heart size={16} strokeWidth={2} />
-            <span>Senior Citizen</span>
-          </button>
-          <button
-            className={`view-tab ${activeTab === "caregiver" ? "active caregiver-tab" : ""}`}
-            onClick={() => setActiveTab("caregiver")}
-          >
-            <Users size={16} strokeWidth={2} />
-            <span>Caregiver Hub</span>
-          </button>
-          <button
-            className={`view-tab ${activeTab === "volunteer" ? "active volunteer-tab" : ""}`}
-            onClick={() => setActiveTab("volunteer")}
-          >
-            <ShieldCheck size={16} strokeWidth={2} />
-            <span>Volunteer Network</span>
-          </button>
-          <button
-            className={`view-tab ${activeTab === "coordinator" ? "active coordinator-tab" : ""}`}
-            onClick={() => setActiveTab("coordinator")}
-          >
-            <Activity size={16} strokeWidth={2} />
-            <span>Coordinator Dispatch</span>
-          </button>
-        </nav>
+        {/* Floating Island Portal Tabs (Role-Based Visibility) */}
+        {activeSession?.role === "SENIOR" || (!activeSession && auth.seniorName) ? (
+          <div className="view-tabs" style={{ background: "rgba(245, 158, 11, 0.08)", borderColor: "rgba(245, 158, 11, 0.25)" }}>
+            <div className="view-tab active senior-tab" style={{ cursor: "default" }}>
+              <Heart size={16} strokeWidth={2} />
+              <span>Senior Citizen Assistant</span>
+            </div>
+          </div>
+        ) : activeSession?.role === "FAMILY" ? (
+          <nav className="view-tabs" role="tablist">
+            <button
+              className={`view-tab ${activeTab === "caregiver" ? "active caregiver-tab" : ""}`}
+              onClick={() => setActiveTab("caregiver")}
+            >
+              <Users size={16} strokeWidth={2} />
+              <span>Caregiver Hub</span>
+            </button>
+            <button
+              className={`view-tab ${activeTab === "senior" ? "active senior-tab" : ""}`}
+              onClick={() => setActiveTab("senior")}
+              title="Preview what your senior parent sees on their screen"
+            >
+              <Heart size={16} strokeWidth={2} />
+              <span>Parent Screen Preview</span>
+            </button>
+          </nav>
+        ) : activeSession?.role === "VOLUNTEER" ? (
+          <nav className="view-tabs" role="tablist">
+            <button
+              className={`view-tab ${activeTab === "volunteer" ? "active volunteer-tab" : ""}`}
+              onClick={() => setActiveTab("volunteer")}
+            >
+              <ShieldCheck size={16} strokeWidth={2} />
+              <span>Volunteer Network</span>
+            </button>
+          </nav>
+        ) : activeSession?.role === "COORDINATOR" ? (
+          <nav className="view-tabs" role="tablist">
+            <button
+              className={`view-tab ${activeTab === "coordinator" ? "active coordinator-tab" : ""}`}
+              onClick={() => setActiveTab("coordinator")}
+            >
+              <Activity size={16} strokeWidth={2} />
+              <span>Coordinator Dispatch</span>
+            </button>
+            <button
+              className={`view-tab ${activeTab === "volunteer" ? "active volunteer-tab" : ""}`}
+              onClick={() => setActiveTab("volunteer")}
+            >
+              <ShieldCheck size={16} strokeWidth={2} />
+              <span>Volunteer Network</span>
+            </button>
+          </nav>
+        ) : (
+          <nav className="view-tabs" role="tablist">
+            <button
+              className={`view-tab ${activeTab === "senior" ? "active senior-tab" : ""}`}
+              onClick={() => setActiveTab("senior")}
+            >
+              <Heart size={16} strokeWidth={2} />
+              <span>Senior Citizen</span>
+            </button>
+            <button
+              className={`view-tab ${activeTab === "caregiver" ? "active caregiver-tab" : ""}`}
+              onClick={() => setActiveTab("caregiver")}
+            >
+              <Users size={16} strokeWidth={2} />
+              <span>Caregiver Hub</span>
+            </button>
+            <button
+              className={`view-tab ${activeTab === "volunteer" ? "active volunteer-tab" : ""}`}
+              onClick={() => setActiveTab("volunteer")}
+            >
+              <ShieldCheck size={16} strokeWidth={2} />
+              <span>Volunteer Network</span>
+            </button>
+            <button
+              className={`view-tab ${activeTab === "coordinator" ? "active coordinator-tab" : ""}`}
+              onClick={() => setActiveTab("coordinator")}
+            >
+              <Activity size={16} strokeWidth={2} />
+              <span>Coordinator Dispatch</span>
+            </button>
+          </nav>
+        )}
 
         {/* Right Header Actions: Status, Account & Navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>

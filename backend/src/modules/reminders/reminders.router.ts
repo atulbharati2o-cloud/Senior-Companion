@@ -195,33 +195,92 @@ remindersRouter.post("/occurrence/:id/acknowledge", async (req: Request, res: Re
 remindersRouter.post("/invite/create", async (req: Request, res: Response) => {
   try {
     const { parentName, phone } = req.body;
-    // Generate a friendly 4-digit code e.g. "8421"
+    const targetPhone = phone || `+91${Math.floor(9000000000 + Math.random() * 1000000000)}`;
     const pairingCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // Create placeholder senior user if not exists
-    const [newUser] = await db.insert(users).values({
-      fullName: parentName || "Senior Parent",
-      phone: phone || `+91${Math.floor(9000000000 + Math.random() * 1000000000)}`,
-      role: "SENIOR"
-    }).returning();
+    let targetSeniorId: string;
+    let targetSeniorName = parentName || "Senior Parent";
 
-    await db.insert(seniorProfiles).values({
-      userId: newUser.id,
-      pairingCode,
-      isPaired: false
-    });
+    // Check if user with this phone already exists
+    const [existingUser] = await db.select().from(users).where(eq(users.phone, targetPhone));
+
+    if (existingUser) {
+      targetSeniorId = existingUser.id;
+      if (parentName) {
+        targetSeniorName = parentName;
+        await db.update(users).set({ fullName: parentName }).where(eq(users.id, existingUser.id));
+      } else {
+        targetSeniorName = existingUser.fullName;
+      }
+
+      const [existingProfile] = await db.select().from(seniorProfiles).where(eq(seniorProfiles.userId, existingUser.id));
+      if (existingProfile) {
+        await db.update(seniorProfiles)
+          .set({ pairingCode, isPaired: false })
+          .where(eq(seniorProfiles.id, existingProfile.id));
+      } else {
+        await db.insert(seniorProfiles).values({
+          userId: existingUser.id,
+          pairingCode,
+          isPaired: false
+        });
+      }
+    } else {
+      // Create new senior user and profile
+      const [newUser] = await db.insert(users).values({
+        fullName: targetSeniorName,
+        phone: targetPhone,
+        role: "SENIOR"
+      }).returning();
+
+      targetSeniorId = newUser.id;
+
+      await db.insert(seniorProfiles).values({
+        userId: newUser.id,
+        pairingCode,
+        isPaired: false
+      });
+    }
 
     res.json({
       success: true,
       data: {
-        seniorId: newUser.id,
-        parentName: newUser.fullName,
+        seniorId: targetSeniorId,
+        parentName: targetSeniorName,
         pairingCode,
         smsInviteText: `Hello! Your child has set up Community Companion for you. Open the app and enter code: ${pairingCode} to connect.`
       }
     });
   } catch (err) {
     console.error("Invite generation error:", err);
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+/**
+ * 8. Fetch linked senior parent details for Caregiver portal
+ */
+remindersRouter.get("/caregiver/parent", async (_req: Request, res: Response) => {
+  try {
+    const [senior] = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+        phone: users.phone,
+        pairingCode: seniorProfiles.pairingCode,
+        isPaired: seniorProfiles.isPaired,
+        preferredLanguage: seniorProfiles.preferredLanguage
+      })
+      .from(users)
+      .innerJoin(seniorProfiles, eq(seniorProfiles.userId, users.id))
+      .where(eq(users.role, "SENIOR"))
+      .limit(1);
+
+    res.json({
+      success: true,
+      data: senior || null
+    });
+  } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
 });

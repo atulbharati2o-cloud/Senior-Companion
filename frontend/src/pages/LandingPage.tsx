@@ -37,6 +37,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 }) => {
   const isLoggedIn = Boolean((activeSession && activeSession.token) || auth.seniorToken);
 
+  const getPortalForRole = (role?: string): PortalTab => {
+    if (role === "FAMILY") return "caregiver";
+    if (role === "VOLUNTEER") return "volunteer";
+    if (role === "COORDINATOR") return "coordinator";
+    return "senior";
+  };
+
   return (
     <div className="landing-wrapper">
       {/* Top Navigation Bar (Max height 72px, single line on desktop) */}
@@ -65,7 +72,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <button
                   className="btn-island btn-island-ghost"
                   style={{ fontSize: "0.82rem", padding: "0.4rem 0.75rem", gap: "0.4rem" }}
-                  onClick={() => onEnterApp(activeSession?.role ? (activeSession.role.toLowerCase() as PortalTab) : "senior")}
+                  onClick={() => onEnterApp(getPortalForRole(activeSession?.role))}
                   title="Current Active Account"
                 >
                   <UserCheck size={14} color="var(--accent-amber)" />
@@ -79,7 +86,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <button
                   className="btn-island btn-island-amber"
-                  onClick={() => onEnterApp(activeSession?.role ? (activeSession.role.toLowerCase() as PortalTab) : "senior")}
+                  onClick={() => onEnterApp(getPortalForRole(activeSession?.role))}
                 >
                   <span>Enter Dashboard</span>
                   <ArrowRight size={15} />
@@ -166,7 +173,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
                     <button
                       className="hero-btn-primary"
-                      onClick={() => onEnterApp(activeSession?.role ? (activeSession.role.toLowerCase() as PortalTab) : "senior")}
+                      onClick={() => onEnterApp(getPortalForRole(activeSession?.role))}
                     >
                       <span>
                         Continue as {activeSession?.userName || auth.seniorName || "Active User"} (
