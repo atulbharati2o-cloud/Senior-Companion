@@ -11,12 +11,13 @@ import {
   CheckCircle2,
   X
 } from "lucide-react";
-import { AuthTokens } from "../../types";
+import { AuthTokens, ActiveSession } from "../../types";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   auth: AuthTokens;
+  activeSession?: ActiveSession | null;
   onSeniorLogin: (code: string) => Promise<void>;
   onStandardLogin: (identifier: string, pass: string) => Promise<void>;
   onDemoSwitch: (role: "SENIOR" | "FAMILY" | "VOLUNTEER" | "COORDINATOR") => Promise<void>;
@@ -29,6 +30,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   auth,
+  activeSession,
   onSeniorLogin,
   onStandardLogin,
   onDemoSwitch,
@@ -141,31 +143,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </button>
           </div>
 
-          {/* Active Profile Bar */}
-          <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "12px", padding: "0.75rem 1rem", marginBottom: "1.25rem", border: "1px solid var(--border-hairline)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Current Active Profile</div>
-              <div style={{ fontWeight: 800, color: "#fff", fontSize: "1.05rem" }}>
-                {auth.seniorName || "No Senior Logged In (Guest)"}
-              </div>
-              {auth.pairingCode && (
-                <div style={{ fontSize: "0.8rem", color: "var(--accent-amber)" }}>
-                  Senior Pairing Code: <strong>{auth.pairingCode}</strong>
+          {/* Active Profile Bar - Only shown if an active session or senior account exists */}
+          {(activeSession || auth.seniorName) && (
+            <div style={{ background: "rgba(0,0,0,0.35)", borderRadius: "12px", padding: "0.75rem 1rem", marginBottom: "1.25rem", border: "1px solid var(--border-hairline)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Current Active Account</div>
+                <div style={{ fontWeight: 800, color: "#fff", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span>{activeSession?.userName || auth.seniorName}</span>
+                  <span className="eyebrow-badge badge-amber" style={{ margin: 0, padding: "0.15rem 0.5rem", fontSize: "0.65rem" }}>
+                    {activeSession?.role || "SENIOR"}
+                  </span>
                 </div>
-              )}
-            </div>
-            {auth.seniorName && (
+                {(activeSession?.pairingCode || auth.pairingCode) && (
+                  <div style={{ fontSize: "0.8rem", color: "var(--accent-amber)", marginTop: "0.2rem" }}>
+                    Senior Pairing Code: <strong>{activeSession?.pairingCode || auth.pairingCode}</strong>
+                  </div>
+                )}
+              </div>
               <button
-                className="btn-island btn-island-ghost"
-                style={{ padding: "0.35rem 0.65rem", fontSize: "0.78rem", color: "#f87171" }}
-                onClick={onLogout}
+                className="btn-island"
+                style={{ padding: "0.35rem 0.65rem", fontSize: "0.78rem", background: "rgba(239, 68, 68, 0.15)", color: "#fca5a5", border: "1px solid rgba(239, 68, 68, 0.3)" }}
+                onClick={() => {
+                  onLogout();
+                  onClose();
+                }}
                 title="Sign Out"
               >
                 <LogOut size={14} />
                 <span>Sign Out</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Modal Tabs */}
           <div className="auth-nav-tabs">
@@ -221,13 +229,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               </form>
 
-              <div style={{ marginTop: "1rem", textAlign: "center" }}>
+              <div style={{ marginTop: "1.25rem", padding: "1rem", background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.25)", borderRadius: "12px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.6rem" }}>
+                  Testing the app? Tap to sign in instantly with the seeded senior account:
+                </div>
                 <button
-                  className="prompt-chip"
-                  style={{ display: "inline-block", fontSize: "0.8rem", padding: "0.35rem 0.75rem" }}
+                  type="button"
+                  className="btn-island btn-island-amber"
+                  style={{ margin: "0 auto", padding: "0.55rem 1.1rem", fontSize: "0.88rem", fontWeight: 700 }}
                   onClick={() => handleSeniorSubmit(undefined, "8421")}
+                  disabled={isLoggingInSenior}
                 >
-                  👉 Quick Fill Demo Code: <strong>8421</strong> (Mrs. Shanti Devi)
+                  <Heart size={16} fill="currentColor" />
+                  <span>1-Tap Demo: Sign In as Dadaji / Mrs. Shanti Devi (PIN: 8421)</span>
                 </button>
               </div>
             </div>
@@ -236,9 +250,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* TAB 2: EMAIL / PHONE + PASSWORD LOGIN */}
           {tab === "login" && (
             <div>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", marginBottom: "1.25rem" }}>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", marginBottom: "1rem" }}>
                 For Family Caregivers, Volunteers, and NGO Emergency Coordinators.
               </p>
+
+              <div style={{ marginBottom: "1rem" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.4rem" }}>
+                  Quick Fill Demo Credentials:
+                </div>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="prompt-chip"
+                    style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
+                    onClick={() => {
+                      setLoginIdentifier("priya.rao@family.companion");
+                      setLoginPassword("Companion@123");
+                    }}
+                  >
+                    👩 Priya Rao (Caregiver)
+                  </button>
+                  <button
+                    type="button"
+                    className="prompt-chip"
+                    style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
+                    onClick={() => {
+                      setLoginIdentifier("rohan.vol@companion.org");
+                      setLoginPassword("Companion@123");
+                    }}
+                  >
+                    🤝 Rohan K. (Volunteer)
+                  </button>
+                  <button
+                    type="button"
+                    className="prompt-chip"
+                    style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
+                    onClick={() => {
+                      setLoginIdentifier("anita.coord@ngo.org");
+                      setLoginPassword("Companion@123");
+                    }}
+                  >
+                    🚨 Anita D. (Coordinator)
+                  </button>
+                </div>
+              </div>
 
               <form onSubmit={handleStandardSubmit}>
                 <div className="form-group-custom">
@@ -258,7 +313,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     className="form-input-custom"
                     type="password"
-                    placeholder="Enter password"
+                    placeholder="Enter password (e.g. Companion@123)"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     required

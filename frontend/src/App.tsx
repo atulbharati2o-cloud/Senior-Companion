@@ -7,6 +7,7 @@ import {
   VolunteerTask,
   MasterSchedule,
   AuthTokens,
+  ActiveSession,
   PortalTab,
   AppView
 } from "./types";
@@ -23,13 +24,36 @@ import { CoordinatorPortal } from "./pages/CoordinatorPortal";
 import { LandingPage } from "./pages/LandingPage";
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<AppView>(() => {
-    return (localStorage.getItem("companion_active_view") === "app") ? "app" : "landing";
+  const [activeSession, setActiveSession] = useState<ActiveSession | null>(() => {
+    try {
+      const saved = localStorage.getItem("companion_active_session");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
   });
-  const [activeTab, setActiveTab] = useState<PortalTab>("senior");
+
+  const [currentView, setCurrentView] = useState<AppView>(() => {
+    const savedSession = localStorage.getItem("companion_active_session");
+    const savedView = localStorage.getItem("companion_active_view");
+    return (savedSession && savedView === "app") ? "app" : "landing";
+  });
+
+  const [activeTab, setActiveTab] = useState<PortalTab>(() => {
+    try {
+      const saved = localStorage.getItem("companion_active_session");
+      if (saved) {
+        const parsed: ActiveSession = JSON.parse(saved);
+        if (parsed.role === "FAMILY") return "caregiver";
+        if (parsed.role === "VOLUNTEER") return "volunteer";
+        if (parsed.role === "COORDINATOR") return "coordinator";
+      }
+    } catch {}
+    return "senior";
+  });
+
   const [authModalInitialTab, setAuthModalInitialTab] = useState<"senior_code" | "login" | "register">("senior_code");
 
-  // Auth & Roles State (No hardcoded fallback - loads from storage or empty)
+  // Auth & Roles State (Loaded dynamically from active session or empty)
   const [auth, setAuth] = useState<AuthTokens>({
     seniorToken: "",
     seniorId: "",
@@ -325,50 +349,110 @@ export default function App() {
     triggerDoseAlarm(target);
   };
 
-  // Bootstrap Demo Auth Sessions or Restore LocalStorage
+  // Restore Active User Session from LocalStorage on Mount
   useEffect(() => {
-    async function initAuthSessions() {
+    function restoreSession() {
       try {
-        const [coordRes, volRes, famRes] = await Promise.all([
-          fetch("/api/auth/demo/COORDINATOR").then((r) => r.json()),
-          fetch("/api/auth/demo/VOLUNTEER").then((r) => r.json()),
-          fetch("/api/auth/demo/FAMILY").then((r) => r.json())
-        ]);
-
-        const savedSenior = localStorage.getItem("companion_active_senior");
-        let activeSeniorName = "";
-        let activeSeniorId = "";
-        let activePairingCode = "";
-        let activeSeniorToken = "";
-
-        if (savedSenior) {
-          try {
-            const parsed = JSON.parse(savedSenior);
-            if (parsed.name && parsed.id) {
-              activeSeniorName = parsed.name;
-              activeSeniorId = parsed.id;
-              activePairingCode = parsed.code || "";
-              activeSeniorToken = parsed.token || "";
+        const savedSessionRaw = localStorage.getItem("companion_active_session");
+        if (savedSessionRaw) {
+          const session: ActiveSession = JSON.parse(savedSessionRaw);
+          if (session && session.token) {
+            setActiveSession(session);
+            if (session.role === "SENIOR") {
+              setAuth((prev) => ({
+                ...prev,
+                seniorToken: session.token,
+                seniorId: session.userId || "",
+                seniorName: session.userName,
+                pairingCode: session.pairingCode || ""
+              }));
+              setActiveTab("senior");
+            } else if (session.role === "FAMILY") {
+              setAuth((prev) => ({ ...prev, familyToken: session.token }));
+              setActiveTab("caregiver");
+            } else if (session.role === "VOLUNTEER") {
+              setAuth((prev) => ({ ...prev, volunteerToken: session.token, volunteerId: session.userId || "" }));
+              setActiveTab("volunteer");
+            } else if (session.role === "COORDINATOR") {
+              setAuth((prev) => ({ ...prev, coordinatorToken: session.token }));
+              setActiveTab("coordinator");
             }
-          } catch {}
+            return;
+          }
         }
 
-        setAuth({
-          seniorToken: activeSeniorToken,
-          seniorId: activeSeniorId,
-          seniorName: activeSeniorName,
-          pairingCode: activePairingCode,
-          coordinatorToken: coordRes.data?.token || "",
-          volunteerToken: volRes.data?.token || "",
-          volunteerId: volRes.data?.user?.id || "",
-          familyToken: famRes.data?.token || ""
-        });
+        const savedSenior = localStorage.getItem("companion_active_senior");
+        if (savedSenior) {
+          const parsed = JSON.parse(savedSenior);
+          if (parsed.name && (parsed.token || parsed.id)) {
+            const session: ActiveSession = {
+              role: "SENIOR",
+              userName: parsed.name,
+              token: parsed.token || "demo-token",
+              userId: parsed.id,
+              pairingCode: parsed.code || "8421"
+            };
+            setActiveSession(session);
+            setAuth((prev) => ({
+              ...prev,
+              seniorToken: session.token,
+              seniorId: session.userId || "",
+              seniorName: session.userName,
+              pairingCode: session.pairingCode || ""
+            }));
+            setActiveTab("senior");
+          }
+        }
       } catch (err) {
-        console.warn("Failed to bootstrap live role tokens from backend:", err);
+        console.warn("Session restore error:", err);
       }
     }
-    initAuthSessions();
+    restoreSession();
   }, []);
+
+  // On-demand demo token acquisition when navigating between portal tabs in App view
+  useEffect(() => {
+    if (currentView !== "app") return;
+
+    if (activeTab === "volunteer" && !auth.volunteerToken) {
+      fetch("/api/auth/demo/VOLUNTEER")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success && json.data) {
+            setAuth((prev) => ({
+              ...prev,
+              volunteerToken: json.data.token,
+              volunteerId: json.data.user?.id || ""
+            }));
+          }
+        })
+        .catch(() => {});
+    } else if (activeTab === "coordinator" && !auth.coordinatorToken) {
+      fetch("/api/auth/demo/COORDINATOR")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success && json.data) {
+            setAuth((prev) => ({
+              ...prev,
+              coordinatorToken: json.data.token
+            }));
+          }
+        })
+        .catch(() => {});
+    } else if (activeTab === "caregiver" && !auth.familyToken) {
+      fetch("/api/auth/demo/FAMILY")
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success && json.data) {
+            setAuth((prev) => ({
+              ...prev,
+              familyToken: json.data.token
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentView, activeTab, auth.volunteerToken, auth.coordinatorToken, auth.familyToken]);
 
   // Fetch Live Occurrences from PostgreSQL
   const fetchOccurrences = useCallback(async () => {
@@ -776,6 +860,16 @@ export default function App() {
       }
       const seniorUser = json.data.user;
       const token = json.data.token;
+      const newSession: ActiveSession = {
+        role: "SENIOR",
+        userName: seniorUser.fullName,
+        token,
+        userId: seniorUser.id,
+        pairingCode: seniorUser.pairingCode
+      };
+      setActiveSession(newSession);
+      localStorage.setItem("companion_active_session", JSON.stringify(newSession));
+      localStorage.setItem("companion_active_view", "app");
       setAuth((prev) => ({
         ...prev,
         seniorToken: token,
@@ -783,16 +877,6 @@ export default function App() {
         seniorName: seniorUser.fullName,
         pairingCode: seniorUser.pairingCode
       }));
-      localStorage.setItem(
-        "companion_active_senior",
-        JSON.stringify({
-          id: seniorUser.id,
-          name: seniorUser.fullName,
-          code: seniorUser.pairingCode,
-          token
-        })
-      );
-      localStorage.setItem("companion_active_view", "app");
       setCurrentView("app");
       setShowAuthModal(false);
       setActiveTab("senior");
@@ -817,6 +901,17 @@ export default function App() {
       }
       const user = json.data.user;
       const token = json.data.token;
+      const newSession: ActiveSession = {
+        role: user.role,
+        userName: user.fullName,
+        token,
+        userId: user.id,
+        email: user.email,
+        phone: user.phone
+      };
+      setActiveSession(newSession);
+      localStorage.setItem("companion_active_session", JSON.stringify(newSession));
+      localStorage.setItem("companion_active_view", "app");
 
       if (user.role === "FAMILY") {
         setAuth((prev) => ({ ...prev, familyToken: token }));
@@ -840,7 +935,6 @@ export default function App() {
         setActiveTab("senior");
         showToast(`✅ Welcome, ${user.fullName} (Senior)!`);
       }
-      localStorage.setItem("companion_active_view", "app");
       setCurrentView("app");
       setShowAuthModal(false);
     } catch (err) {
@@ -856,6 +950,19 @@ export default function App() {
       if (json.success && json.data) {
         const user = json.data.user;
         const token = json.data.token;
+        const newSession: ActiveSession = {
+          role,
+          userName: user.fullName,
+          token,
+          userId: user.id,
+          pairingCode: user.pairingCode || (role === "SENIOR" ? "8421" : undefined),
+          email: user.email,
+          phone: user.phone
+        };
+        setActiveSession(newSession);
+        localStorage.setItem("companion_active_session", JSON.stringify(newSession));
+        localStorage.setItem("companion_active_view", "app");
+
         if (role === "SENIOR") {
           setAuth((prev) => ({
             ...prev,
@@ -864,32 +971,22 @@ export default function App() {
             seniorName: user.fullName,
             pairingCode: user.pairingCode || "8421"
           }));
-          localStorage.setItem(
-            "companion_active_senior",
-            JSON.stringify({
-              id: user.id,
-              name: user.fullName,
-              code: user.pairingCode || "8421",
-              token
-            })
-          );
           setActiveTab("senior");
-          showToast(`👤 Switched to Demo Senior: ${user.fullName}`);
+          showToast(`👤 Signed in as Senior: ${user.fullName}`);
           setTimeout(() => fetchOccurrences(), 300);
         } else if (role === "FAMILY") {
           setAuth((prev) => ({ ...prev, familyToken: token }));
           setActiveTab("caregiver");
-          showToast(`👤 Switched to Demo Caregiver: ${user.fullName}`);
+          showToast(`👤 Signed in as Caregiver: ${user.fullName}`);
         } else if (role === "VOLUNTEER") {
           setAuth((prev) => ({ ...prev, volunteerToken: token, volunteerId: user.id }));
           setActiveTab("volunteer");
-          showToast(`👤 Switched to Demo Volunteer: ${user.fullName}`);
+          showToast(`👤 Signed in as Volunteer: ${user.fullName}`);
         } else if (role === "COORDINATOR") {
           setAuth((prev) => ({ ...prev, coordinatorToken: token }));
           setActiveTab("coordinator");
-          showToast(`👤 Switched to Demo Coordinator: ${user.fullName}`);
+          showToast(`👤 Signed in as Coordinator: ${user.fullName}`);
         }
-        localStorage.setItem("companion_active_view", "app");
         setCurrentView("app");
         setShowAuthModal(false);
       }
@@ -914,9 +1011,22 @@ export default function App() {
       const newUser = json.data.user;
       const token = json.data.token;
       let registeredCode: string | null = null;
+      const newSession: ActiveSession = {
+        role: payload.role,
+        userName: newUser.fullName,
+        token,
+        userId: newUser.id,
+        pairingCode: newUser.pairingCode,
+        email: newUser.email,
+        phone: newUser.phone
+      };
+      setActiveSession(newSession);
+      localStorage.setItem("companion_active_session", JSON.stringify(newSession));
+      localStorage.setItem("companion_active_view", "app");
 
       if (payload.role === "SENIOR") {
         registeredCode = newUser.pairingCode || "8421";
+        newSession.pairingCode = registeredCode || undefined;
         setAuth((prev) => ({
           ...prev,
           seniorToken: token,
@@ -924,15 +1034,6 @@ export default function App() {
           seniorName: newUser.fullName,
           pairingCode: registeredCode!
         }));
-        localStorage.setItem(
-          "companion_active_senior",
-          JSON.stringify({
-            id: newUser.id,
-            name: newUser.fullName,
-            code: registeredCode,
-            token
-          })
-        );
         setActiveTab("senior");
         showToast(`🎉 Senior ${newUser.fullName} registered! 4-Digit Code: ${registeredCode}`);
         setTimeout(() => fetchOccurrences(), 300);
@@ -945,10 +1046,9 @@ export default function App() {
         setAuth((prev) => ({ ...prev, volunteerToken: token, volunteerId: newUser.id }));
         setActiveTab("volunteer");
         showToast(`🎉 Volunteer ${newUser.fullName} registered!`);
+        setShowAuthModal(false);
       }
-      localStorage.setItem("companion_active_view", "app");
       setCurrentView("app");
-      setShowAuthModal(false);
       return registeredCode;
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);
@@ -958,8 +1058,10 @@ export default function App() {
 
   // Sign Out (Returns cleanly to Landing Page)
   const handleLogout = () => {
+    localStorage.removeItem("companion_active_session");
     localStorage.removeItem("companion_active_senior");
     localStorage.setItem("companion_active_view", "landing");
+    setActiveSession(null);
     setCurrentView("landing");
     setAuth({
       seniorToken: "",
@@ -1075,6 +1177,7 @@ export default function App() {
       {currentView === "landing" ? (
         <LandingPage
           auth={auth}
+          activeSession={activeSession}
           onOpenAuth={(tab) => {
             if (tab) setAuthModalInitialTab(tab);
             setShowAuthModal(true);
@@ -1085,6 +1188,7 @@ export default function App() {
             localStorage.setItem("companion_active_view", "app");
           }}
           onQuickDemo={(role) => handleDemoPersonaSwitch(role)}
+          onLogout={handleLogout}
         />
       ) : (
         <>
@@ -1093,6 +1197,7 @@ export default function App() {
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             auth={auth}
+            activeSession={activeSession}
             onOpenAuthModal={() => setShowAuthModal(true)}
             onLogout={handleLogout}
             onGoToLanding={() => {
@@ -1207,6 +1312,7 @@ export default function App() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         auth={auth}
+        activeSession={activeSession}
         onSeniorLogin={handleSeniorCodeLogin}
         onStandardLogin={handleStandardLogin}
         onDemoSwitch={handleDemoPersonaSwitch}

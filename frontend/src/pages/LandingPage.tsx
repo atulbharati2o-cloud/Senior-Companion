@@ -13,24 +13,29 @@ import {
   Flame,
   KeyRound,
   LogIn,
+  LogOut,
   Play
 } from "lucide-react";
-import { AuthTokens, PortalTab } from "../types";
+import { AuthTokens, ActiveSession, PortalTab } from "../types";
 
 interface LandingPageProps {
   auth: AuthTokens;
+  activeSession: ActiveSession | null;
   onOpenAuth: (defaultTab?: "senior_code" | "login" | "register") => void;
   onEnterApp: (portal?: PortalTab) => void;
   onQuickDemo: (role: "SENIOR" | "FAMILY" | "VOLUNTEER" | "COORDINATOR") => void;
+  onLogout: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   auth,
+  activeSession,
   onOpenAuth,
   onEnterApp,
-  onQuickDemo
+  onQuickDemo,
+  onLogout
 }) => {
-  const isLoggedIn = Boolean(auth.seniorToken || auth.familyToken || auth.volunteerToken || auth.coordinatorToken);
+  const isLoggedIn = Boolean((activeSession && activeSession.token) || auth.seniorToken);
 
   return (
     <div className="landing-wrapper">
@@ -56,13 +61,47 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="landing-nav-actions">
             {isLoggedIn ? (
-              <button
-                className="btn-island btn-island-amber"
-                onClick={() => onEnterApp()}
-              >
-                <span>Enter App Dashboard</span>
-                <ArrowRight size={15} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <button
+                  className="btn-island btn-island-ghost"
+                  style={{ fontSize: "0.82rem", padding: "0.4rem 0.75rem", gap: "0.4rem" }}
+                  onClick={() => onEnterApp(activeSession?.role ? (activeSession.role.toLowerCase() as PortalTab) : "senior")}
+                  title="Current Active Account"
+                >
+                  <UserCheck size={14} color="var(--accent-amber)" />
+                  <span style={{ fontWeight: 700, color: "#fff" }}>
+                    {activeSession?.userName || auth.seniorName || "Active Profile"}
+                  </span>
+                  <span className="eyebrow-badge badge-amber" style={{ margin: 0, padding: "0.15rem 0.45rem", fontSize: "0.62rem" }}>
+                    {activeSession?.role || (auth.seniorName ? "SENIOR" : "USER")}
+                  </span>
+                </button>
+
+                <button
+                  className="btn-island btn-island-amber"
+                  onClick={() => onEnterApp(activeSession?.role ? (activeSession.role.toLowerCase() as PortalTab) : "senior")}
+                >
+                  <span>Enter Dashboard</span>
+                  <ArrowRight size={15} />
+                </button>
+
+                <button
+                  className="btn-island"
+                  style={{
+                    padding: "0.4rem 0.75rem",
+                    fontSize: "0.82rem",
+                    background: "rgba(239, 68, 68, 0.15)",
+                    color: "#fca5a5",
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    gap: "0.35rem"
+                  }}
+                  onClick={onLogout}
+                  title="Sign out of current account"
+                >
+                  <LogOut size={14} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             ) : (
               <>
                 <button
@@ -124,13 +163,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {/* Hero Action Buttons */}
               <div className="hero-actions">
                 {isLoggedIn ? (
-                  <button
-                    className="hero-btn-primary"
-                    onClick={() => onEnterApp()}
-                  >
-                    <span>Continue to Active Portal</span>
-                    <ArrowRight size={17} />
-                  </button>
+                  <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+                    <button
+                      className="hero-btn-primary"
+                      onClick={() => onEnterApp(activeSession?.role ? (activeSession.role.toLowerCase() as PortalTab) : "senior")}
+                    >
+                      <span>
+                        Continue as {activeSession?.userName || auth.seniorName || "Active User"} (
+                        {activeSession?.role === "SENIOR"
+                          ? "Senior"
+                          : activeSession?.role === "FAMILY"
+                          ? "Caregiver"
+                          : activeSession?.role === "VOLUNTEER"
+                          ? "Volunteer"
+                          : activeSession?.role === "COORDINATOR"
+                          ? "Coordinator"
+                          : "Senior"}
+                        )
+                      </span>
+                      <ArrowRight size={17} />
+                    </button>
+
+                    <button
+                      className="hero-btn-secondary"
+                      onClick={onLogout}
+                    >
+                      <LogOut size={16} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <button

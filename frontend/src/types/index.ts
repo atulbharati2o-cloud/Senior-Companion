@@ -74,6 +74,17 @@ export interface AuthTokens {
   familyToken: string;
 }
 
+export interface ActiveSession {
+  role: "SENIOR" | "FAMILY" | "VOLUNTEER" | "COORDINATOR";
+  userName: string;
+  token: string;
+  userId?: string;
+  pairingCode?: string;
+  email?: string;
+  phone?: string;
+}
+
 export type PortalTab = "senior" | "caregiver" | "volunteer" | "coordinator";
 
 export type AppView = "landing" | "app";
+

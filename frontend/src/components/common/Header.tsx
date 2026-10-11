@@ -9,12 +9,13 @@ import {
   LogOut,
   Home
 } from "lucide-react";
-import { AuthTokens, PortalTab } from "../../types";
+import { AuthTokens, ActiveSession, PortalTab } from "../../types";
 
 interface HeaderProps {
   activeTab: PortalTab;
   setActiveTab: (tab: PortalTab) => void;
   auth: AuthTokens;
+  activeSession?: ActiveSession | null;
   onOpenAuthModal: () => void;
   onLogout: () => void;
   onGoToLanding?: () => void;
@@ -24,28 +25,30 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   auth,
+  activeSession,
   onOpenAuthModal,
   onLogout,
   onGoToLanding
 }) => {
   // Determine current active display profile
-  let activeProfileLabel = "Guest / Demo";
-  let activeRoleBadge = "Demo";
-  if (auth.seniorName) {
+  let activeProfileLabel = "Guest / Sign In";
+  let activeRoleBadge = "Guest";
+  if (activeSession) {
+    activeProfileLabel = activeSession.userName;
+    activeRoleBadge =
+      activeSession.role === "SENIOR"
+        ? "Senior"
+        : activeSession.role === "FAMILY"
+        ? "Caregiver"
+        : activeSession.role === "VOLUNTEER"
+        ? "Volunteer"
+        : "Coordinator";
+  } else if (auth.seniorName) {
     activeProfileLabel = auth.seniorName;
     activeRoleBadge = "Senior";
-  } else if (auth.familyToken) {
-    activeProfileLabel = "Family Caregiver";
-    activeRoleBadge = "Family";
-  } else if (auth.volunteerToken) {
-    activeProfileLabel = "Community Volunteer";
-    activeRoleBadge = "Volunteer";
-  } else if (auth.coordinatorToken) {
-    activeProfileLabel = "Emergency Coordinator";
-    activeRoleBadge = "Coordinator";
   }
 
-  const hasAnyAuth = Boolean(auth.seniorToken || auth.seniorName || auth.familyToken || auth.volunteerToken || auth.coordinatorToken);
+  const hasAnyAuth = Boolean((activeSession && activeSession.token) || auth.seniorToken);
 
   return (
     <header className="app-header">
