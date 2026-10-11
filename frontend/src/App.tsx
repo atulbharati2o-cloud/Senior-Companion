@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Mic,
   MicOff,
@@ -28,6 +28,7 @@ interface DoseOccurrence {
   medicineName: string;
   dosage: string;
   time: string;
+  scheduledTimestamp?: number;
   mealRelation: string;
   status: "SCHEDULED" | "ACKNOWLEDGED" | "ESCALATED";
   instructions?: string;
@@ -140,6 +141,11 @@ export default function App() {
   // Live Doses List
   const [doses, setDoses] = useState<DoseOccurrence[]>([]);
   const [isLoadingDoses, setIsLoadingDoses] = useState(false);
+  const [activeAlarmDose, setActiveAlarmDose] = useState<DoseOccurrence | null>(null);
+  const [testCountdown, setTestCountdown] = useState<number | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    typeof Notification !== "undefined" ? Notification.permission : "default"
+  );
 
   // Caregiver Portal State
   const [parentName, setParentName] = useState("");
@@ -165,18 +171,230 @@ export default function App() {
 
   // Web Speech API Ref
   const recognitionRef = useRef<any>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const triggeredDoseIdsRef = useRef<Set<string>>(new Set());
+
+  // Web Audio Context Unlocker for Mobile Browsers
+  const unlockAudio = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume();
+      }
+    } catch (e) {
+      console.warn("Audio unlock error:", e);
+    }
+  }, []);
+
+  // Register Service Worker for Mobile Notifications
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("Service worker registration:", err);
+      });
+    }
+    const handleGesture = () => unlockAudio();
+    window.addEventListener("pointerdown", handleGesture, { once: true });
+    return () => window.removeEventListener("pointerdown", handleGesture);
+  }, [unlockAudio]);
 
   // Clock Ticker
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
+      setCurrentTime(now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }));
       setCurrentDate(now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }));
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Dispatch Mobile Lock Screen / Native Notification Banner
+  const triggerNotification = useCallback(async (title: string, options: NotificationOptions) => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    // Try Service Worker registration first (standard and required on Android Chrome)
+    if ("serviceWorker" in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && reg.showNotification) {
+          await reg.showNotification(title, {
+            ...options,
+            vibrate: [300, 150, 300, 150, 300]
+          } as any);
+          return;
+        }
+      } catch (e) {
+        console.warn("SW notification error:", e);
+      }
+    }
+
+    // Fallback to classic desktop Notification constructor
+    try {
+      new Notification(title, options);
+    } catch (e) {
+      console.warn("Notification constructor fallback error:", e);
+    }
+  }, []);
+
+  // Request Notification Permissions on Touch Gesture
+  const requestNotificationPermission = useCallback(async () => {
+    unlockAudio();
+    if ("Notification" in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        setNotifPermission(perm);
+        if (perm === "granted") {
+          showToast("✔ Mobile notifications active! You will receive lock screen alerts.");
+          triggerNotification("Community Companion Notifications Active", {
+            body: "You will receive timely alerts when medications are due.",
+            requireInteraction: false
+          });
+        } else {
+          showToast("Notification permission not granted. You will still hear audio chime in-app.");
+        }
+      } catch (e) {
+        console.warn("Notification permission error:", e);
+      }
+    } else {
+      showToast("Notification API not supported by this browser.");
+    }
+  }, [triggerNotification, unlockAudio]);
+
+  // Trigger Audio Chime & Synthesized Spoken Alarm for Due Medication
+  const triggerDoseAlarm = useCallback((dose: DoseOccurrence) => {
+    setActiveAlarmDose(dose);
+    speakText(`Reminder: Mrs. Shanti Devi, it is time for your ${dose.medicineName} ${dose.dosage}. Please take it with water.`);
+
+    // Native Browser / Phone Lock Screen Notification Banner
+    triggerNotification(`🔔 Medicine Due: ${dose.medicineName}`, {
+      body: `${dose.time} — Take ${dose.dosage} (${dose.mealRelation}). Open Community Companion to confirm.`,
+      requireInteraction: true
+    });
+
+    try {
+      unlockAudio();
+      const ctx = audioCtxRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.7);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.7);
+    } catch {}
+  }, [triggerNotification, unlockAudio]);
+
+  // Active Alarm Clock Checker: matches current integer hours & minutes to scheduled pending doses
+  useEffect(() => {
+    if (doses.length === 0) return;
+    const now = new Date();
+    const nowHours = now.getHours();
+    const nowMins = now.getMinutes();
+
+    const pendingDoses = doses.filter((d) => d.status === "SCHEDULED");
+    for (const d of pendingDoses) {
+      if (!d.scheduledTimestamp) continue;
+      const doseDate = new Date(d.scheduledTimestamp);
+      const doseHours = doseDate.getHours();
+      const doseMins = doseDate.getMinutes();
+
+      // Reliable integer check (immune to locale formatting or narrow-space quirks)
+      if (doseHours === nowHours && doseMins === nowMins && !triggeredDoseIdsRef.current.has(d.id)) {
+        triggeredDoseIdsRef.current.add(d.id);
+        triggerDoseAlarm(d);
+        break;
+      }
+    }
+  }, [currentTime, doses, triggerDoseAlarm]);
+
+  // 30-Second Test Alarm Live Countdown
+  useEffect(() => {
+    if (testCountdown === null) return;
+    if (testCountdown <= 0) {
+      setTestCountdown(null);
+      const target = doses.find((d) => d.status === "SCHEDULED") || doses[0] || {
+        id: `test-live-${Date.now()}`,
+        medicineName: "Paracetamol (30s Test)",
+        dosage: "500 mg",
+        time: currentTime || "Now",
+        mealRelation: "After Food",
+        status: "SCHEDULED",
+        instructions: "Live test reminder successfully fired!"
+      };
+      triggerDoseAlarm(target);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTestCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [testCountdown, doses, currentTime, triggerDoseAlarm]);
+
+  // Schedule a Real Test Alarm Ringing in 30 Seconds
+  const handleSchedule30SecAlarm = async () => {
+    unlockAudio();
+    if ("Notification" in window && Notification.permission !== "granted") {
+      try {
+        await Notification.requestPermission();
+        setNotifPermission(Notification.permission);
+      } catch {}
+    }
+
+    const now = new Date();
+    const target = new Date(now.getTime() + 30000);
+    const hours = String(target.getHours()).padStart(2, "0");
+    const minutes = String(target.getMinutes()).padStart(2, "0");
+    const targetTimeStr = `${hours}:${minutes}`;
+
+    try {
+      const res = await fetch("/api/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seniorId: auth.seniorId || undefined,
+          medicineName: "Paracetamol (30s Test)",
+          dosage: "500 mg",
+          mealRelation: "AFTER_MEAL",
+          targetTimes: [targetTimeStr],
+          instructions: "Test dose automatically ringing in 30 seconds"
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchOccurrences();
+      }
+    } catch (e) {
+      console.warn("Failed to schedule 30s test reminder:", e);
+    }
+
+    setTestCountdown(30);
+    showToast("⏱️ 30-Second Alarm Scheduled! Ringing in 30s. Keep this tab open.");
+  };
+
+  // Immediate Test Alarm Trigger (Instant Demo)
+  const handleTriggerInstantTestAlarm = () => {
+    unlockAudio();
+    const target = doses.find((d) => d.status === "SCHEDULED") || doses[0] || {
+      id: "demo-instant-dose",
+      medicineName: "Paracetamol",
+      dosage: "500 mg",
+      time: currentTime || "Now",
+      mealRelation: "After Food",
+      status: "SCHEDULED",
+      instructions: "Take with water"
+    };
+    triggerDoseAlarm(target);
+  };
 
   // Initialize Demo Auth Roles from Backend
   useEffect(() => {
@@ -213,24 +431,35 @@ export default function App() {
       const res = await fetch("/api/reminders/occurrences/today");
       const json = await res.json();
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-        const mapped = json.data.map((item: any) => ({
-          id: item.id,
-          medicineName: item.medicineName || "Prescribed Medication",
-          dosage: item.dosage || "Standard Dose",
-          time: new Date(item.scheduledFor).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          mealRelation: item.mealRelation?.replace("_", " ") || "After Food",
-          status: item.status || "SCHEDULED",
-          instructions: item.instructions || "Take with water"
-        }));
+        const mapped = json.data.map((item: any) => {
+          const doseDate = new Date(item.scheduledFor);
+          return {
+            id: item.id,
+            medicineName: item.medicineName || "Prescribed Medication",
+            dosage: item.dosage || "Standard Dose",
+            time: doseDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+            scheduledTimestamp: doseDate.getTime(),
+            mealRelation: item.mealRelation?.replace("_", " ") || "After Food",
+            status: item.status || "SCHEDULED",
+            instructions: item.instructions || "Take with water"
+          };
+        });
         setDoses(mapped);
       } else {
         // Fallback default sample if occurrences queue is empty
+        const now = new Date();
+        const morningDate = new Date(now);
+        morningDate.setHours(9, 0, 0, 0);
+        const afternoonDate = new Date(now);
+        afternoonDate.setHours(14, 0, 0, 0);
+
         setDoses([
           {
             id: "dose-1",
             medicineName: "Metformin",
             dosage: "500 mg",
             time: "09:00 AM",
+            scheduledTimestamp: morningDate.getTime(),
             mealRelation: "After Breakfast",
             status: "SCHEDULED",
             instructions: "Take with warm water"
@@ -240,6 +469,7 @@ export default function App() {
             medicineName: "Telmisartan (BP)",
             dosage: "40 mg",
             time: "02:00 PM",
+            scheduledTimestamp: afternoonDate.getTime(),
             mealRelation: "After Lunch",
             status: "SCHEDULED",
             instructions: "For blood pressure maintenance"
@@ -255,6 +485,8 @@ export default function App() {
 
   useEffect(() => {
     fetchOccurrences();
+    const interval = setInterval(fetchOccurrences, 10000);
+    return () => clearInterval(interval);
   }, [fetchOccurrences]);
 
   // Fetch Caregiver Master Schedules
@@ -716,9 +948,19 @@ export default function App() {
     setPendingVolunteers((prev) => prev.filter((v) => v.userId !== userId));
   };
 
-  // Calculate live adherence
+  // Calculate live adherence & overdue doses
   const takenCount = doses.filter((d) => d.status === "ACKNOWLEDGED").length;
   const adherenceRate = doses.length > 0 ? Math.round((takenCount / doses.length) * 100) : 100;
+
+  const overdueDoses = useMemo(() => {
+    const nowMs = Date.now();
+    return doses.filter((d) => {
+      if (d.status !== "SCHEDULED" || !d.scheduledTimestamp) return false;
+      const diffMs = nowMs - d.scheduledTimestamp;
+      // Overdue if scheduled more than 60 seconds ago and within past 14 hours
+      return diffMs > 60000 && diffMs < 14 * 3600 * 1000;
+    });
+  }, [doses, currentTime]);
 
   return (
     <div>
@@ -955,9 +1197,89 @@ export default function App() {
               </div>
             </div>
 
+            {/* Overdue Medicine Alert Banner */}
+            {overdueDoses.length > 0 && (
+              <div className="bezel-outer bezel-outer-amber" style={{ marginBottom: "1.5rem" }}>
+                <div
+                  className="bezel-inner bezel-inner-amber"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "1rem",
+                    padding: "1.25rem 1.5rem"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <div style={{ background: "rgba(245, 158, 11, 0.2)", padding: "0.75rem", borderRadius: "12px", color: "var(--accent-amber)" }}>
+                      <AlertTriangle size={24} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#fff" }}>
+                        Overdue Medication Alert ({overdueDoses.length} dose pending)
+                      </div>
+                      <div style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+                        {overdueDoses.map((d) => `${d.medicineName} (${d.time})`).join(", ")} was scheduled earlier today and has not been taken yet.
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap" }}>
+                    <button
+                      className="btn-island btn-island-amber"
+                      style={{ padding: "0.6rem 1rem", fontSize: "0.85rem" }}
+                      onClick={() => triggerDoseAlarm(overdueDoses[0])}
+                    >
+                      <Bell size={16} />
+                      <span>Ring Alarm Now</span>
+                    </button>
+                    <button
+                      className="btn-island btn-island-emerald"
+                      style={{ padding: "0.6rem 1rem", fontSize: "0.85rem" }}
+                      onClick={() => handleAcknowledgeDose(overdueDoses[0].id, overdueDoses[0].medicineName)}
+                    >
+                      <Check size={16} strokeWidth={2.5} />
+                      <span>Mark Taken</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Active 30-Second Test Alarm Countdown Strip */}
+            {testCountdown !== null && (
+              <div className="bezel-outer bezel-outer-amber" style={{ marginBottom: "1.5rem" }}>
+                <div
+                  className="bezel-inner bezel-inner-amber"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "1rem 1.5rem"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div className="status-dot-pulse" style={{ background: "var(--accent-amber)" }} />
+                    <span style={{ fontWeight: 800, color: "#fff", fontSize: "1.1rem" }}>
+                      Live Alarm Test Active: Ringing in{" "}
+                      <span style={{ color: "var(--accent-amber)", fontSize: "1.35rem" }}>{testCountdown}s</span>... Keep this tab open!
+                    </span>
+                  </div>
+                  <button
+                    className="btn-island btn-island-ghost"
+                    style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
+                    onClick={() => setTestCountdown(null)}
+                  >
+                    <X size={14} />
+                    <span>Cancel</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Today's Medications Grid */}
             <div className="section-header-row">
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", flexWrap: "wrap" }}>
                 <h2 className="section-title">Today's Medicine Schedule</h2>
                 <button
                   className="btn-island btn-island-ghost"
@@ -967,6 +1289,40 @@ export default function App() {
                 >
                   <RefreshCw size={14} className={isLoadingDoses ? "animate-spin" : ""} />
                 </button>
+                <button
+                  className="btn-island btn-island-amber"
+                  style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
+                  onClick={handleTriggerInstantTestAlarm}
+                  title="Test Audio Chime, Voice & Modal Alarm"
+                >
+                  <Bell size={14} />
+                  <span>Test Alarm Now</span>
+                </button>
+                <button
+                  className="btn-island btn-island-ghost"
+                  style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem", color: "var(--accent-amber)" }}
+                  onClick={handleSchedule30SecAlarm}
+                  title="Schedule a real alarm that rings automatically in 30 seconds"
+                >
+                  <Clock size={14} />
+                  <span>⏱️ Ring in 30s</span>
+                </button>
+                {notifPermission === "granted" ? (
+                  <span className="eyebrow-badge badge-emerald" style={{ margin: 0, padding: "0.35rem 0.65rem" }}>
+                    <Bell size={12} />
+                    <span>Phone Alerts Active</span>
+                  </span>
+                ) : (
+                  <button
+                    className="btn-island btn-island-emerald"
+                    style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
+                    onClick={requestNotificationPermission}
+                    title="Enable phone lock screen notification alerts"
+                  >
+                    <Bell size={14} />
+                    <span>Enable Phone Alerts</span>
+                  </button>
+                )}
               </div>
 
               <span className="eyebrow-badge badge-emerald">
@@ -1798,6 +2154,68 @@ export default function App() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          5. MODAL: ACTIVE MEDICATION DUE ALARM (AUDIO CHIME & TTS PROMPT)
+          ==================================================================== */}
+      {activeAlarmDose && (
+        <div className="modal-backdrop">
+          <div className="bezel-outer bezel-outer-amber modal-bezel-outer" style={{ maxWidth: "520px" }}>
+            <div className="bezel-inner bezel-inner-amber" style={{ textAlign: "center", padding: "2.5rem 2rem" }}>
+              <span className="eyebrow-badge badge-amber" style={{ margin: "0 auto 1.25rem auto" }}>
+                <Bell size={14} />
+                <span>Medication Alarm Due Now ({activeAlarmDose.time})</span>
+              </span>
+
+              <h2 style={{ fontSize: "2rem", color: "#fff", marginBottom: "0.5rem", fontWeight: 800 }}>
+                Time for Your Medicine!
+              </h2>
+
+              <div style={{ fontSize: "1.7rem", fontWeight: 800, color: "var(--accent-amber)", marginBottom: "0.25rem" }}>
+                {activeAlarmDose.medicineName}
+              </div>
+
+              <div style={{ fontSize: "1.15rem", color: "#fff", fontWeight: 600, marginBottom: "0.75rem" }}>
+                Dose: {activeAlarmDose.dosage} • {activeAlarmDose.mealRelation}
+              </div>
+
+              {activeAlarmDose.instructions && (
+                <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", marginBottom: "1.75rem" }}>
+                  "{activeAlarmDose.instructions}"
+                </p>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem", marginTop: "1rem" }}>
+                <button
+                  className="btn-island btn-island-ghost"
+                  style={{ justifyContent: "center", padding: "0.9rem" }}
+                  onClick={() => {
+                    speakText("Reminder snoozed for 10 minutes.");
+                    setActiveAlarmDose(null);
+                  }}
+                >
+                  <Clock size={18} />
+                  <span>Snooze 10 Mins</span>
+                </button>
+
+                <button
+                  className="btn-island btn-island-emerald"
+                  style={{ justifyContent: "center", padding: "0.9rem" }}
+                  onClick={() => {
+                    handleAcknowledgeDose(activeAlarmDose.id, activeAlarmDose.medicineName);
+                    setActiveAlarmDose(null);
+                  }}
+                >
+                  <span>Mark as Taken</span>
+                  <div className="btn-island-tray">
+                    <Check size={18} strokeWidth={3} />
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
