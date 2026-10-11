@@ -108,7 +108,7 @@ export default function App() {
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [masterSchedules, setMasterSchedules] = useState<MasterSchedule[]>([]);
   const [linkedSenior, setLinkedSenior] = useState<LinkedSenior | null>(null);
-  const [caregiverContacts, setCaregiverContacts] = useState<EmergencyContact[]>([]);
+  const [_caregiverContacts, setCaregiverContacts] = useState<EmergencyContact[]>([]);
   const [isPairingSenior, setIsPairingSenior] = useState(false);
   const [isSchedulingMedicine, setIsSchedulingMedicine] = useState(false);
 
@@ -1289,6 +1289,12 @@ export default function App() {
                 onStartSos={startSosCountdown}
                 onOpenAuthModal={() => setShowAuthModal(true)}
                 onSpeakText={speakText}
+                isListening={isListening}
+                isParsing={isParsing}
+                voiceTranscript={voiceTranscript}
+                onToggleListening={toggleListening}
+                onVoiceParse={handleVoiceParse}
+                onChangeVoiceTranscript={setVoiceTranscript}
               />
             )}
 

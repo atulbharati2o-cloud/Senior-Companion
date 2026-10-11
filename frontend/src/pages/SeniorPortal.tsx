@@ -10,7 +10,11 @@ import {
   Bell,
   KeyRound,
   LogIn,
-  Radio
+  Radio,
+  Mic,
+  MicOff,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 import { AuthTokens, DoseOccurrence, EmergencyContact } from "../types";
 
@@ -29,6 +33,12 @@ interface SeniorPortalProps {
   onStartSos: () => void;
   onOpenAuthModal: () => void;
   onSpeakText: (text: string) => void;
+  isListening: boolean;
+  isParsing: boolean;
+  voiceTranscript: string;
+  onToggleListening: () => void;
+  onVoiceParse: (transcript: string) => void;
+  onChangeVoiceTranscript: (text: string) => void;
 }
 
 export const SeniorPortal: React.FC<SeniorPortalProps> = ({
@@ -45,7 +55,13 @@ export const SeniorPortal: React.FC<SeniorPortalProps> = ({
   onTriggerDoseAlarm,
   onStartSos,
   onOpenAuthModal,
-  onSpeakText
+  onSpeakText,
+  isListening,
+  isParsing,
+  voiceTranscript,
+  onToggleListening,
+  onVoiceParse,
+  onChangeVoiceTranscript
 }) => {
   const takenCount = doses.filter((d) => d.status === "ACKNOWLEDGED").length;
   const overdueDoses = doses.filter((d) => {
@@ -143,6 +159,139 @@ export const SeniorPortal: React.FC<SeniorPortalProps> = ({
           </p>
         </div>
       )}
+
+      {/* Voice Assistant & Medicine Mic Hero */}
+      <div className="bezel-outer" style={{ marginBottom: "2rem" }}>
+        <div className="bezel-inner voice-hero-card">
+          <span className="eyebrow-badge badge-amber">
+            <Sparkles size={12} />
+            <span>Groq AI Spoken Voice Assistant</span>
+          </span>
+
+          <h2 className="voice-headline">Tell Me Your Medicine Schedule</h2>
+          <p className="voice-subtext">
+            Tap the big microphone and speak naturally in English or Hindi. Groq AI will parse your medicine, dosage, and timing.
+          </p>
+
+          {/* Big Pulsing Mic Button */}
+          <button
+            className={`mic-button-giant ${isListening ? "listening" : ""}`}
+            onClick={onToggleListening}
+            aria-label="Toggle Voice Recording"
+            title={isListening ? "Listening... Tap to stop" : "Tap to speak your medicine"}
+          >
+            {isListening ? <MicOff size={60} strokeWidth={2.2} /> : <Mic size={60} strokeWidth={2.2} />}
+          </button>
+
+          {/* Live Audio Waveform Feedback */}
+          <div className={`waveform-container ${isListening ? "active" : ""}`}>
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+            <div className="waveform-bar" />
+          </div>
+
+          <div
+            style={{
+              fontWeight: 700,
+              color: isListening ? "var(--accent-crimson)" : "var(--accent-amber)",
+              fontSize: "1.2rem",
+              marginBottom: "1.25rem"
+            }}
+          >
+            {isListening
+              ? "Listening to you... Speak now"
+              : isParsing
+              ? "Groq AI is processing your voice..."
+              : "Tap the Microphone to Speak"}
+          </div>
+
+          {/* Manual Voice Text Input & Edit Bar */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (voiceTranscript.trim()) {
+                onVoiceParse(voiceTranscript);
+              }
+            }}
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              width: "100%",
+              maxWidth: "580px",
+              margin: "0 auto 1.5rem auto"
+            }}
+          >
+            <input
+              type="text"
+              className="form-input-custom"
+              placeholder="Or type/edit schedule: e.g. Paracetamol 500mg at 5 PM"
+              value={voiceTranscript}
+              onChange={(e) => onChangeVoiceTranscript(e.target.value)}
+              style={{ flex: 1, borderRadius: "12px", fontSize: "0.95rem" }}
+            />
+            <button
+              type="submit"
+              className="btn-island btn-island-amber"
+              style={{ padding: "0.6rem 1.15rem" }}
+              disabled={isParsing || !voiceTranscript.trim()}
+            >
+              <span>{isParsing ? "Parsing..." : "Parse AI"}</span>
+              <div className="btn-island-tray">
+                <ArrowRight size={16} />
+              </div>
+            </button>
+          </form>
+
+          {/* Quick Natural Dialect Prompts */}
+          <div className="prompt-chips-wrap">
+            <button
+              className="prompt-chip"
+              onClick={() => {
+                const text = "Take Paracetamol 500mg at 5 PM in the evening";
+                onChangeVoiceTranscript(text);
+                onVoiceParse(text);
+              }}
+            >
+              ☕ "Take Paracetamol 500mg at 5 PM"
+            </button>
+            <button
+              className="prompt-chip"
+              onClick={() => {
+                const text = "Shaam ko 5 baje Paracetamol lena hai";
+                onChangeVoiceTranscript(text);
+                onVoiceParse(text);
+              }}
+            >
+              🇮🇳 "Shaam ko 5 baje Paracetamol lena hai"
+            </button>
+            <button
+              className="prompt-chip"
+              onClick={() => {
+                const text = "Remind me to take Metformin 500mg after breakfast at 9 am";
+                onChangeVoiceTranscript(text);
+                onVoiceParse(text);
+              }}
+            >
+              🗣️ "Metformin 500mg after breakfast (9 AM)"
+            </button>
+            <button
+              className="prompt-chip"
+              onClick={() => {
+                const text = "Blood pressure tablet at 9 pm after dinner";
+                onChangeVoiceTranscript(text);
+                onVoiceParse(text);
+              }}
+            >
+              💊 "BP tablet at 9 PM after dinner"
+            </button>
+          </div>
+        </div>
+      </div>
 
       {overdueDoses.length > 0 && (
         <div className="bezel-outer bezel-outer-amber" style={{ marginBottom: "1.5rem" }}>
