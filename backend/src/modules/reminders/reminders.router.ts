@@ -128,9 +128,10 @@ remindersRouter.get("/senior/:seniorId", async (req: Request, res: Response) => 
 /**
  * 5. Fetch today's reminder occurrences (for senior or caregiver feed)
  */
-remindersRouter.get("/occurrences/today", async (_req: Request, res: Response) => {
+remindersRouter.get("/occurrences/today", async (req: Request, res: Response) => {
   try {
-    const occurrences = await db
+    const { seniorId } = req.query;
+    let query = db
       .select({
         id: reminderOccurrences.id,
         reminderId: reminderOccurrences.reminderId,
@@ -145,6 +146,13 @@ remindersRouter.get("/occurrences/today", async (_req: Request, res: Response) =
       .from(reminderOccurrences)
       .innerJoin(medicineReminders, eq(medicineReminders.id, reminderOccurrences.reminderId));
 
+    if (seniorId && typeof seniorId === "string") {
+      const filtered = await query.where(eq(medicineReminders.seniorId, seniorId));
+      res.json({ success: true, data: filtered });
+      return;
+    }
+
+    const occurrences = await query;
     res.json({ success: true, data: occurrences });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });

@@ -73,9 +73,10 @@ export class AuthService {
       role
     }).returning();
 
+    let pairingCode: string | undefined;
     // Create role-specific profile
     if (role === "SENIOR") {
-      const pairingCode = Math.floor(1000 + Math.random() * 9000).toString();
+      pairingCode = Math.floor(1000 + Math.random() * 9000).toString();
       await db.insert(seniorProfiles).values({
         userId: newUser.id,
         pairingCode,
@@ -106,7 +107,8 @@ export class AuthService {
         fullName: newUser.fullName,
         email: newUser.email,
         phone: newUser.phone,
-        role: newUser.role
+        role: newUser.role,
+        pairingCode
       },
       token
     };
